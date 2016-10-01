@@ -1,13 +1,13 @@
 Next step:
 
-- Create and upload lambda functions (from s3 buckets for now)
-- Versioning lambda functions on Updates
-- Set appropriate permissions for invoking lambda functions from Kinesis
+- [DONE] Create and upload lambda functions (from s3 buckets for now)
+- [DONE] Versioning lambda functions on Updates
+- [DONE] Set appropriate permissions for invoking lambda functions from Kinesis
 
 
 - Research Kinesis
-  - How to publish to Kinesis
-  - How to invoke lambda functions from Kinesis
+  - [DONE] How to publish to Kinesis
+  - [DONE] How to invoke lambda functions from Kinesis
 
 - Parse YAML file
 - Parse command line (and give appropriate syntax error)

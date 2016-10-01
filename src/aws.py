@@ -1,3 +1,4 @@
+import time
 import json
 import boto3
 import botocore
@@ -65,9 +66,16 @@ class Lambda(object):
         function_arn = function['FunctionArn']
         return function_arn
 
-    def add_permission(self):
-        ''' Adds permission for Kinesis to invoke lambda function '''
-        pass
+    def subscribe_to_stream(self, function_arn, stream_arn):
+        try:
+            mapping = self.awslambda \
+                          .create_event_source_mapping(EventSourceArn=stream_arn,
+                                                       FunctionName=function_arn,
+                                                       BatchSize=1,
+                                                       StartingPosition='TRIM_HORIZON')
+        except botocore.exceptions.ClientError as ex:
+            if ex.response['Error']['Code'] != 'ResourceConflictException':
+                raise ex
 
 
 class IAM(object):
@@ -85,26 +93,50 @@ class IAM(object):
         }]
     }
 
+    def __init__(self, region,
+                 aws_access_key_id=None, aws_secret_access_key=None):
+        self.iam = boto3.client('iam', region,
+                                aws_access_key_id=aws_access_key_id,
+                                aws_secret_access_key=aws_secret_access_key)
+
     def get_or_create_role(self, region, role_name='lambda-execute'):
-        iam = boto3.client('iam', region)
         try:
-            role = iam.get_role(RoleName=role_name)
-            role_arn = role['Role']['Arn']
+            role = self.iam.get_role(RoleName=role_name)
+
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchEntity':
-                role = iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(POLICY_ASSUME_LAMBDA_ROLE))
-                role_arn = role['Role']['Arn']
-                iam.attach_role_policy(RoleName=role_name, PolicyArn=POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
+                role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(POLICY_ASSUME_LAMBDA_ROLE))
+                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
             else:
                 raise ex
+
+        role_arn = role['Role']['Arn']
         return role_arn
 
 
 class Kinesis(object):
 
-    def subscribe(self):
-        pass
+    def __init__(self, region,
+                 aws_access_key_id=None, aws_secret_access_key=None):
+        self.kinesis = boto3.client('kinesis', region,
+                                    aws_access_key_id=aws_access_key_id,
+                                    aws_secret_access_key=aws_secret_access_key)
 
-    def add_permission(self):
-        ''' Also adds permission for Lambda function to publish to Kinesis '''
-        pass
+    def get_or_create_stream(self, name):
+        try:
+            stream = self.kinesis.describe_stream(StreamName=name)
+        except botocore.exceptions.ClientError as ex:
+            if ex.response['Error']['Code'] == 'ResourceNotFoundException':
+                self.kinesis.create_stream(StreamName=name, ShardCount=1)
+                # Wait until the stream is active
+                while True:
+                    stream = self.kinesis.describe_stream(StreamName=name):
+                    if stream['StreamDescription']['StreamStatus'] == 'CREATING':
+                        time.sleep(3)
+                    else:
+                        break
+            else:
+                raise ex
+
+        stream_arn = stream['StreamDescription']['StreamARN']
+        return stream_arn

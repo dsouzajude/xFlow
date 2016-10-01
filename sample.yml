@@ -1,0 +1,33 @@
+- workflow_id: word_count
+- description: A flow that takes as input a file and counts the unique words in it.
+- steps:
+  - lambda_file_reader:
+    - description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
+    - source: s3://flows/word_count/reader.py
+    - handler: read_file
+    - events:
+        - FileUploaded
+  - lambda_parser:
+    - description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
+    - source: s3://flows/word_count/parser.py
+    - handler: parse
+    - events:
+      - FileDownloaded
+  - lambda_combiner:
+    - description: Groups similar words and aggregates the count and publishes a `FileAggregated` with the grouping in it.
+    - source: s3://flows/word_count/combiner.py
+    - handler: parse
+    - events:
+      - FileParsed
+    - lambda_filter:
+      - description: Filters out non-words and publishes a 'FileFiltered' with the remainder words in it.
+      - source: s3://flows/word_count/filter.py
+      - handler: filter
+      - events:
+        - FileAggregated
+    - lambda_summarize:
+      - description: Outputs the word count for every unique word and total words in the file.
+      - source: git://project/blob/master/flows/word_count/summary.py
+      - handler: summarize
+      - events:
+        - FileFiltered

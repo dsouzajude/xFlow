@@ -1,8 +1,10 @@
 import os
+import core
 
 
-def main():
-    timeout_time = int(os.environ.get('TIMEOUT_TIME', 5))
+def main(config_path):
+    engine = core.Engine(config_path)
+    engine.setup()
 
 
 if __name__ == '__main__':

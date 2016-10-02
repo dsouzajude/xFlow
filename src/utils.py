@@ -32,3 +32,7 @@ def get_host(url):
 def get_path(url):
     url_obj = urlparse(url)
     return url_obj.path[1:]
+
+def get_scheme(url):
+    url_obj = urlparse(url)
+    return url_obj.scheme

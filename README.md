@@ -33,38 +33,59 @@ Creating a sample workflow:
 
 ```yaml
 
-workflow_id: word_count
-description: A flow that takes as input a file and counts the unique words in it.
-steps:
-- name: lambda_file_reader
-  description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
-  source: s3://flows/word_count/reader.py
-  handler: read_file
-  events:
-    - FileUploaded
-- name: lambda_parser
-  description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
-  source: s3://flows/word_count/parser.py
-  handler: parse
-  events:
-    - FileDownloaded
-- name: lambda_combiner
-  description: Groups similar words and aggregates the count and publishes a `FileAggregated` with the grouping in it.
-  source: s3://flows/word_count/combiner.py
-  handler: parse
-  events:
-    - FileParsed
-- name: lambda_filter
-  description: Filters out non-words and publishes a 'FileFiltered' with the remainder words in it.
-  source: s3://flows/word_count/filter.py
-  handler: filter
-  events: [FileAggregated]
-- name: lambda_summarize
-  description: Outputs the word count for every unique word and total words in the file.
-  source: git://project/blob/master/flows/word_count/summary.py
-  handler: summarize
-  events:
-    - FileFiltered
+general:
+  lambda_timeout_time: 3
+
+aws:
+  region:
+  vpc_id:
+  aws_access_key_id:
+  aws_secret_access_key:
+  lambda_execution_role_name: lambda-execute
+
+lambdas:
+  - name: lambda_file_reader
+    description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
+    source: s3://flows/word_count/reader.py.zip
+    handler: read_file
+    runtime: python2.7
+  - name: lambda_parser
+    description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
+    source: s3://flows/word_count/parser.py.zip
+    handler: parse
+    runtime: python2.7
+  - name: lambda_combiner
+    description: Groups similar words and aggregates the count and publishes a `FileAggregated` with the grouping in it.
+    source: s3://flows/word_count/combiner.py.zip
+    handler: parse
+    runtime: python2.7
+  - name: lambda_filter
+    description: Filters out non-words and publishes a 'FileFiltered' with the remainder words in it.
+    source: s3://flows/word_count/filter.py.zip
+    handler: filter
+    runtime: python2.7
+  - name: lambda_summarize
+    description: Outputs the word count for every unique word and total words in the file.
+    source: git://project/blob/master/flows/word_count/summary.py
+    handler: summarize
+    runtime: python2.7
+
+subscriptions:
+  - name: FileUploaded
+    subscribers:
+      - lambda_file_reader
+  - name: FileDownloaded
+    subscribers:
+      - lambda_parser
+  - name: FileParsed
+    subscribers:
+      - lambda_combiner
+  - name: FileAggregated
+    subscribers:
+      - lambda_filter
+  - name: FileFiltered
+    subscribers:
+      - lambda_summarize
 
 ```
 

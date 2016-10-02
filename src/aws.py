@@ -12,7 +12,7 @@ class MissingSourceCodeFileError(Exception):
 
 class Lambda(object):
 
-    def __init__(self, role_arn, region,
+    def __init__(self, region, role_arn,
                  subnet_ids=[], security_group_ids=[],
                  timeout_time=5, aws_access_key_id=None, aws_secret_access_key=None):
         self.role_arn = role_arn

@@ -1,7 +1,7 @@
 
 xFlow
 =====
-A serverless workflow architecture using AWS Lambda functions.
+A serverless workflow architecture using AWS Lambda functions and Kinesis.
 
 **THIS PROJECT IS CURRENTLY A WORK IN PROGRESS AND IS NOT INTENDED TO BE USED FOR NOW UNTIL RELEASED**
 

@@ -12,7 +12,8 @@ setup(
         'boto3',
         'pyyaml>=3.12',
         'nose',
-        'mock'
+        'mock',
+        'argparse'
     ],
     entry_points={
         'console_scripts': [

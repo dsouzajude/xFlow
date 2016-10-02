@@ -1,8 +1,15 @@
+import yaml
 from urlparse import urlparse
 from zipfile import ZipFile
 
-def parse_yaml():
-    pass
+
+def parse_yaml(contents):
+    return yaml.load(contents)
+
+def read_file(filename):
+    with open(filename, 'r') as f:
+        contents = f.read()
+    return contents
 
 def zip_file(filename):
     zip_filename = filename + '.zip'

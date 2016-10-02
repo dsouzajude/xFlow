@@ -5,11 +5,11 @@ Next step:
 - [DONE] Set appropriate permissions for invoking lambda functions from Kinesis
 
 
-- Research Kinesis
+- [DONE] Research Kinesis
   - [DONE] How to publish to Kinesis
   - [DONE] How to invoke lambda functions from Kinesis
 
-- Parse YAML file
+- [DONE] Parse YAML file
 - Parse command line (and give appropriate syntax error)
 - Create a workflow
 - Test the workflow

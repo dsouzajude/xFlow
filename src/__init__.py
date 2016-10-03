@@ -7,7 +7,6 @@ import core, utils
 def _get_args():
     ''' Following are the usage options:
 
-    xflow <CONFIG> [--dry-run]
     xflow <CONFIG> [-v | --validate]
     xflow <CONFIG> [-c | --configure]
     xflow <CONFIG> [-p | --publish <STREAM> <JSON>]
@@ -15,7 +14,6 @@ def _get_args():
     '''
     parser = argparse.ArgumentParser(prog='xflow', usage='%(prog)s CONFIG [options]', description='xFlow | A serverless workflow architecture.')
     parser.add_argument('CONFIG', type=str, help='Absolute path to config file')
-    parser.add_argument('--dry-run', action='store_true', help='Dry run the program')
     parser.add_argument('-v', action='store_true', help='Validates the config file')
     parser.add_argument('-c', action='store_true', help='Configures lambdas, streams and the subscriptions')
     parser.add_argument('-p', type=str, nargs=2, metavar=("<STREAM>","<JSON>"), required=False, help='Publishes json data to a stream')
@@ -39,15 +37,10 @@ def main():
         print 'Invalid config. Error: %s' % (str(ex))
         sys.exit(1)
 
-    # Just dry run
-    dry_run = False
-    if args['dry_run']:
-        dry_run = True
-
     # Configure the lambdas, streams and subscriptions
     if args['c']:
         print 'Setting up lambdas, streams and subscriptions'
-        engine.configure(dry_run)
+        engine.configure()
 
     # Publish json data to stream
     if args['p']:

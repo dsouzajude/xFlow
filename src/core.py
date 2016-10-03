@@ -69,7 +69,6 @@ class Engine(object):
             if self.is_local_zipfile(source):
                 zip_filename = source
 
-            print 'source: %s' % source
             lambda_arn = self.awslambda \
                              .create_or_update_function(name, runtime, handler, description=description,
                                                         zip_filename=zip_filename, s3_filename=s3_filename,
@@ -93,13 +92,12 @@ class Engine(object):
                 lambda_arn = lambda_mappings[lambda_name]
                 self.awslambda.subscribe_to_stream(lambda_arn, stream_arn)
                 print 'Subscribed lambda %s to stream %s' % (lambda_name, event_name)
-
         print 'Setting up streams and subscriptions .. Done'
 
     def validate_config(self):
         pass
 
-    def configure(self, dry_run=True):
+    def configure(self):
         ''' Creates the lambda functions, streams and lambda to stream mappings '''
         print 'Configuring xFlow Engine'
         lambda_mappings = self.setup_lambdas()

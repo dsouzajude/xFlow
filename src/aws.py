@@ -25,10 +25,11 @@ class Lambda(object):
 
     def create_or_update_function(self, name, runtime, handler, description=None,
                                   zip_filename=None, s3_filename=None, local_filename=None):
+        # TODO: Verify if function code does get updated
         if zip_filename:
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
-        elif local_file:
+        elif local_filename:
             zip_filename = utils.zip_file(local_filename)
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
@@ -36,15 +37,20 @@ class Lambda(object):
             bucket, key = utils.get_host(s3_filename), utils.get_path(s3_filename)
             code = {'S3Bucket': bucket, 'S3Key': key}
         else:
-            raise MissingSourceCodeError("Must provide either zip_filename, s3_filename or local_filename")
+            raise MissingSourceCodeFileError("Must provide either zip_filename, s3_filename or local_filename")
 
         try:
-            function = self.awslambda \
-                           .update_function_code(FunctionName=name,
-                                                 ZipFile=code.get('ZipFile'),
-                                                 S3Bucket=code.get('S3Bucket'),
-                                                 S3Key=code.get('S3Key'),
-                                                 Publish=True)
+            if zip_filename or local_filename:
+                function = self.awslambda \
+                               .update_function_code(FunctionName=name,
+                                                     ZipFile=code['ZipFile'],
+                                                     Publish=True)
+            else:
+                function = self.awslambda \
+                               .update_function_code(FunctionName=name,
+                                                     S3Bucket=code['S3Bucket'],
+                                                     S3Key=code['S3Key'],
+                                                     Publish=True)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
                 function = self.awslambda \
@@ -105,8 +111,8 @@ class IAM(object):
 
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchEntity':
-                role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(POLICY_ASSUME_LAMBDA_ROLE))
-                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
+                role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
+                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
             else:
                 raise ex
 
@@ -130,7 +136,7 @@ class Kinesis(object):
                 self.kinesis.create_stream(StreamName=name, ShardCount=1)
                 # Wait until the stream is active
                 while True:
-                    stream = self.kinesis.describe_stream(StreamName=name):
+                    stream = self.kinesis.describe_stream(StreamName=name)
                     if stream['StreamDescription']['StreamStatus'] == 'CREATING':
                         time.sleep(3)
                     else:
@@ -140,3 +146,7 @@ class Kinesis(object):
 
         stream_arn = stream['StreamDescription']['StreamARN']
         return stream_arn
+
+    def publish(self, stream_name, data):
+        self.kinesis.put_record(StreamName=stream_name, Data=data, PartitionKey=data)
+        ## TODO: capture error if stream doesn't exist

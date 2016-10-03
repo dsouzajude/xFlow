@@ -1,5 +1,7 @@
+import os
 import yaml
 from urlparse import urlparse
+import zipfile
 from zipfile import ZipFile
 
 
@@ -12,18 +14,15 @@ def read_file(filename):
     return contents
 
 def zip_file(filename):
+    arch_name = filename.rsplit('/', 1)[1]
     zip_filename = filename + '.zip'
-    with ZipFile(zip_filename, 'w') as zf:
-    zf.write(filename)
-        for root, dirs, files in os.walk('node_modules'):
-            for file in files:
-                zf.write(os.path.join(root, file))
-
+    with ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.write(filename, arch_name)
     return zip_filename
 
 def get_zip_contents(zip_filename):
-    with open(zip_filename) as zip_blob:
-        return zip_blob
+    with open(zip_filename, 'rb') as zip_blob:
+        return zip_blob.read()
 
 def get_host(url):
     url_obj = urlparse(url)

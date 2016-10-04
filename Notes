@@ -10,13 +10,12 @@ Next step:
   - [DONE] How to invoke lambda functions from Kinesis
 
 - [DONE] Parse YAML file
-- Parse command line (and give appropriate syntax error)
-- Create a workflow
-- Test the workflow
-
+- [DONE] Parse command line (and give appropriate syntax error)
 - Logging of the program
 
-- Track workflow
-
+- Test pub/sub
 - Monitor Lambda functions
-- Log of lambda functions
+
+- Create a workflow
+- Test the workflow
+- Track workflow

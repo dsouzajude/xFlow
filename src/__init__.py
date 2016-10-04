@@ -1,7 +1,18 @@
+# -*- coding: utf-8 -*-
+
+
+""" xFlow """
+
+
 import sys
 import argparse
 
 import core, utils
+
+
+__author__ = "Jude D'Souza <dsouza_jude@hotmail.com>"
+__version_info__ = (0, 1)
+__version__ = '.'.join(map(str, __version_info__))
 
 
 def _get_args():

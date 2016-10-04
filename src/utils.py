@@ -7,9 +7,9 @@ import zipfile
 from zipfile import ZipFile
 
 
-def is_valid_json(data):
+def is_valid_json(contents):
     try:
-        json.loads(data)
+        json.loads(contents)
         return True
     except:
         return False

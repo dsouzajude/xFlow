@@ -1,4 +1,7 @@
 import os
+import pykwalify
+from pykwalify.core import Core
+
 import utils
 from aws import Lambda, Kinesis, IAM
 
@@ -94,8 +97,26 @@ class Engine(object):
                 print 'Subscribed lambda %s to stream %s' % (lambda_name, event_name)
         print 'Setting up streams and subscriptions .. Done'
 
-    def validate_config(self):
-        pass
+    @staticmethod
+    def validate_config(config_file):
+        ''' Validates config against the schema
+        And also validates the lambdas in the subscriptions are defined
+        Raises ConfigValidationError if not valid.
+        '''
+        c = Core(source_file=config_file, schema_files=["schema.yaml"])
+        try:
+            config = c.validate(raise_exception=True)
+        except pykwalify.errors.SchemaError as ex:
+            raise ConfigValidationError(str(ex))
+
+        subscriptions = config.get('subscriptions', [])
+        lambdas = config.get('lambdas')
+        lambda_names = [l['name'] for l in lambdas]
+        for ss in subscriptions:
+            subscribers = ss.get('subscribers', [])
+            for s in subscribers:
+                if s not in lambda_names:
+                    raise ConfigValidationError("Lambda not defined for subscriber %s" % s)
 
     def configure(self):
         ''' Creates the lambda functions, streams and lambda to stream mappings '''

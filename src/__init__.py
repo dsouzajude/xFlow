@@ -22,20 +22,20 @@ def _get_args():
 
 def main():
     args = _get_args()
-    config_path = args['CONFIG']
-    if not utils.file_exists(config_path):
-        print 'File %s does not exist' % (config_path)
+    config_file = args['CONFIG']
+    if not utils.file_exists(config_file):
+        print 'File %s does not exist' % (config_file)
         sys.exit(1)
-
-    print 'Initializing xFlow engine'
-    engine = core.Engine(config_path)
 
     print 'Validating config'
     try:
-        engine.validate_config()
-    except ConfigValidationError as ex:
-        print 'Invalid config. Error: %s' % (str(ex))
+        core.Engine.validate_config(config_file)
+    except core.ConfigValidationError as ex:
+        print 'Invalid config. %s' % (str(ex))
         sys.exit(1)
+
+    print 'Initializing xFlow engine'
+    engine = core.Engine(config_file)
 
     # Configure the lambdas, streams and subscriptions
     if args['c']:

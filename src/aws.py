@@ -62,6 +62,7 @@ class Lambda(object):
             log.info("Lambda updated, lambda=%s" % name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
+                handler = '%s.%s' % (name, handler)
                 function = self.awslambda \
                                .create_function(FunctionName=name,
                                                 Runtime=runtime,

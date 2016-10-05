@@ -125,7 +125,7 @@ class Engine(object):
         lambdas = config.get('lambdas')
         lambda_names = [l['name'] for l in lambdas]
         for ss in subscriptions:
-            subscribers = ss.get('subscribers', [])
+            subscribers = ss.get('subscribers') or []
             for s in subscribers:
                 if s not in lambda_names:
                     raise ConfigValidationError("Lambda not defined for subscriber %s" % s)

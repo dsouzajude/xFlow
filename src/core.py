@@ -1,10 +1,13 @@
 import os
+import logging
 import pykwalify
 from pykwalify.core import Core
 
 import utils
 from aws import Lambda, Kinesis, IAM
 
+
+log = logging.getLogger(__name__)
 
 LAMBDA_EXECUTE_ROLE_NAME = 'lambda-execute'
 
@@ -15,6 +18,7 @@ class ConfigValidationError(Exception):
 
 class Engine(object):
     def __init__(self, config_path):
+
         contents = utils.read_file(config_path)
         self.config = utils.parse_yaml(contents)
 
@@ -28,23 +32,34 @@ class Engine(object):
         general_config = self.config.get('general', {})
         timeout_time = int(os.environ.get('LAMBDA_TIMEOUT_TIME') or general_config.get('lambda_timeout_time') or 10)
 
-        self.awslambda = self.setup_lambda(region, role_name, timeout_time,
-                                        aws_access_key_id, aws_secret_access_key)
+        log.debug('region=%s, vpc_id=%s, role_name=%s' % (region, vpc_id, role_name))
+        log.debug('timeout_time=%s' % timeout_time)
+        self.awslambda = self.setup_lambda(region,
+                                           role_name,
+                                           timeout_time,
+                                           aws_access_key_id, aws_secret_access_key)
         self.kinesis = self.setup_kinesis(region, aws_access_key_id, aws_secret_access_key)
-
 
     def setup_lambda(self, region, role_name, timeout_time, aws_access_key_id, aws_secret_access_key):
         iam = IAM(region,
                   aws_access_key_id=aws_access_key_id,
                   aws_secret_access_key=aws_secret_access_key)
-        role_arn = iam.get_or_create_role(region, role_name=role_name)
-        return Lambda(region, role_arn, subnet_ids=[], security_group_ids=[], timeout_time=timeout_time,
-                      aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+        role_arn = iam.get_or_create_role(role_name=role_name)
+        awslambda = Lambda(region, role_arn,
+                      subnet_ids=[],
+                      security_group_ids=[],
+                      timeout_time=timeout_time,
+                      aws_access_key_id=aws_access_key_id,
+                      aws_secret_access_key=aws_secret_access_key)
+        log.info('AWS Lambda initialized')
+        return awslambda
 
     def setup_kinesis(self, region, aws_access_key_id, aws_secret_access_key):
-        return Kinesis(region,
+        awskinesis = Kinesis(region,
                        aws_access_key_id=aws_access_key_id,
                        aws_secret_access_key=aws_secret_access_key)
+        log.info('AWS Kinesis initialized')
+        return awskinesis
 
     def is_s3(self, source):
         return True if utils.get_scheme(source) == 's3' else False
@@ -58,7 +73,7 @@ class Engine(object):
                        source.endswith('zip') else False
 
     def setup_lambdas(self):
-        print 'Setting up lambdas'
+        log.info('Setting up lambdas')
         lambda_mappings = {}
         lambdas = self.config.get('lambdas', [])
         for l in lambdas:
@@ -76,26 +91,23 @@ class Engine(object):
                              .create_or_update_function(name, runtime, handler, description=description,
                                                         zip_filename=zip_filename, s3_filename=s3_filename,
                                                         local_filename=local_filename)
-            print 'Created/ Updated lambda: %s' % name
             lambda_mappings[name] = lambda_arn
 
-        print 'Setting up lambdas .. Done'
+        log.info('Setup all lambdas')
         return lambda_mappings
 
     def setup_streams_and_subscriptions(self, lambda_mappings):
-        print 'Setting up streams and subscriptions'
+        log.info('Setting up streams and subscriptions')
         stream_mappings = {}
         subscriptions = self.config.get('subscriptions')
         for s in subscriptions:
             event_name = s['name']
             lambda_subscribers = s.get('subscribers') or []
             stream_arn = self.kinesis.get_or_create_stream(event_name)
-            print 'Created stream: %s' % event_name
             for lambda_name in lambda_subscribers:
                 lambda_arn = lambda_mappings[lambda_name]
                 self.awslambda.subscribe_to_stream(lambda_arn, stream_arn)
-                print 'Subscribed lambda %s to stream %s' % (lambda_name, event_name)
-        print 'Setting up streams and subscriptions .. Done'
+        log.info("Setup all streams and subscriptions")
 
     @staticmethod
     def validate_config(config_file):
@@ -120,11 +132,9 @@ class Engine(object):
 
     def configure(self):
         ''' Creates the lambda functions, streams and lambda to stream mappings '''
-        print 'Configuring xFlow Engine'
         lambda_mappings = self.setup_lambdas()
         self.setup_streams_and_subscriptions(lambda_mappings)
-        print 'Configuring xFlow Engine .. Done'
 
     def publish(self, stream_name, data):
         self.kinesis.publish(stream_name, data)
-        print 'Published data: %s' % data
+        log.debug('publishing, stream=%s, data=%s' % (stream_name, data))

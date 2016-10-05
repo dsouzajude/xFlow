@@ -1,9 +1,13 @@
 import time
 import json
+import logging
 import boto3
 import botocore
 
 import utils
+
+
+log = logging.getLogger(__name__)
 
 
 class MissingSourceCodeFileError(Exception):
@@ -29,14 +33,18 @@ class Lambda(object):
         if zip_filename:
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
+            log.debug('source=zip, file=%s' % zip_filename)
         elif local_filename:
             zip_filename = utils.zip_file(local_filename)
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
+            log.debug('source=local, file=%s' % local_filename)
         elif s3_filename:
             bucket, key = utils.get_host(s3_filename), utils.get_path(s3_filename)
             code = {'S3Bucket': bucket, 'S3Key': key}
+            log.debug('source=s3, file=%s' % s3_filename)
         else:
+            log.error('Missing source')
             raise MissingSourceCodeFileError("Must provide either zip_filename, s3_filename or local_filename")
 
         try:
@@ -51,6 +59,7 @@ class Lambda(object):
                                                      S3Bucket=code['S3Bucket'],
                                                      S3Key=code['S3Key'],
                                                      Publish=True)
+            log.info("Lambda updated, lambda=%s" % name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
                 function = self.awslambda \
@@ -66,6 +75,7 @@ class Lambda(object):
                                                  'SubnetIds': self.subnet_ids,
                                                  'SecurityGroupIds': self.security_group_ids
                                                 })
+                log.info("Lambda created, lambda=%s" % name)
             else:
                 raise ex
 
@@ -79,8 +89,10 @@ class Lambda(object):
                                                        FunctionName=function_arn,
                                                        BatchSize=1,
                                                        StartingPosition='TRIM_HORIZON')
+            log.info('Subscription created, stream=%s, function=%s' % (function_arn, stream_arn))
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] != 'ResourceConflictException':
+                log.error('Subscription failed, stream=%s, function=%s, error=%s' % (stream_arn, function_arn, str(ex)))
                 raise ex
 
 
@@ -105,15 +117,18 @@ class IAM(object):
                                 aws_access_key_id=aws_access_key_id,
                                 aws_secret_access_key=aws_secret_access_key)
 
-    def get_or_create_role(self, region, role_name='lambda-execute'):
+    def get_or_create_role(self, role_name='lambda-execute'):
         try:
             role = self.iam.get_role(RoleName=role_name)
-
+            log.info('Role exists, role=%s' % role_name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'NoSuchEntity':
                 role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
+                log.info('Role created, role=%s' % role_name)
                 self.iam.attach_role_policy(RoleName=role_name, PolicyArn=IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
+                log.info('Attached policy to role')
             else:
+                log.error('Creating role failed, role=%s, error=%s' % (role_name, str(ex)))
                 raise ex
 
         role_arn = role['Role']['Arn']
@@ -131,6 +146,7 @@ class Kinesis(object):
     def get_or_create_stream(self, name):
         try:
             stream = self.kinesis.describe_stream(StreamName=name)
+            log.info('Stream exists, stream=%s' % name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
                 self.kinesis.create_stream(StreamName=name, ShardCount=1)
@@ -140,6 +156,7 @@ class Kinesis(object):
                     if stream['StreamDescription']['StreamStatus'] == 'CREATING':
                         time.sleep(3)
                     else:
+                        log.info('Stream created, stream=%s' % name)
                         break
             else:
                 raise ex

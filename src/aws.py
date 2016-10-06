@@ -122,7 +122,6 @@ class IAM(object):
 
     POLICY_LAMBDA_KINESIS_EXECUTION_ROLE = 'arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole'
     POLICY_LAMBDA_KINESIS_PUBLISH_NAME = "AWSLambdaKinesisPublishRole"
-    POLICY_LAMBDA_KINESIS_PUBLISH_ARN = "arn:aws:iam::232835152771:policy/%s" % POLICY_LAMBDA_KINESIS_PUBLISH_NAME
     POLICY_LAMBDA_KINESIS_PUBLISH = {
         'Version': '2012-10-17',
         'Statement': [
@@ -157,16 +156,11 @@ class IAM(object):
         self.iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
         log.info('Attached policy, policy=%s, role=%s' % (policy_arn, role_name))
 
-    def get_policy(self, policy_arn):
-        policy = self.iam.get_policy(PolicyArn=policy_arn)
-        policy_arn = policy['Policy']['Arn']
-        return policy_arn
-
-    def create_policy(self, policy_name, policy_document):
-        policy = self.iam.create_policy(PolicyName=policy_name, PolicyDocument=policy_document)
-        policy_arn = policy['Policy']['Arn']
-        log.info("Created Policy, policy=%s" % policy_name)
-        return policy_arn
+    def put_role_policy(self, role_name, policy_name, policy_document):
+        self.iam.put_role_policy(RoleName=role_name,
+                                 PolicyName=policy_name,
+                                 PolicyDocument=policy_document)
+        log.info("Added inline Policy, role=%s, policy=%s" % (role_name, policy_name))
 
     def get_or_create_role(self, role_name='lambda-execute'):
         try:
@@ -177,16 +171,7 @@ class IAM(object):
                 role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
                 log.info('Role created, role=%s' % role_name)
                 self.attach_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
-
-                try:
-                    policy_arn = self.create_policy(IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME,
-                                                    json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH, indent=4))
-                except botocore.exceptions.ClientError as exx:
-                    if exx.response['Error']['Code'] == 'EntityAlreadyExists':
-                        policy_arn = self.get_policy(IAM.POLICY_LAMBDA_KINESIS_PUBLISH_ARN)
-                    else:
-                        raise exx
-                self.attach_role_policy(role_name, policy_arn)
+                self.put_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME, json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH))
             else:
                 log.error('Creating role failed, role=%s, error=%s' % (role_name, str(ex)))
                 raise ex

@@ -91,9 +91,9 @@ class Lambda(object):
                         break
                     except botocore.exceptions.ClientError as exx:
                         if exx.response['Error']['Code'] == 'InvalidParameterValueException':
+                            log.info('Retrying to create lambda, lambda=%s ...' % name)
                             time.sleep(3)
                             last_ex = exx
-                            log.info('Retrying to create lambda, lambda=%s' % name)
                         else:
                             raise exx
                 if not lambda_created:
@@ -153,6 +153,21 @@ class IAM(object):
                                 aws_access_key_id=aws_access_key_id,
                                 aws_secret_access_key=aws_secret_access_key)
 
+    def attach_role_policy(self, role_name, policy_arn):
+        self.iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
+        log.info('Attached policy, policy=%s, role=%s' % (policy_arn, role_name))
+
+    def get_policy(self, policy_arn):
+        policy = self.iam.get_policy(PolicyArn=policy_arn)
+        policy_arn = policy['Policy']['Arn']
+        return policy_arn
+
+    def create_policy(self, policy_name, policy_document):
+        policy = self.iam.create_policy(PolicyName=policy_name, PolicyDocument=policy_document)
+        policy_arn = policy['Policy']['Arn']
+        log.info("Created Policy, policy=%s" % policy_name)
+        return policy_arn
+
     def get_or_create_role(self, role_name='lambda-execute'):
         try:
             role = self.iam.get_role(RoleName=role_name)
@@ -161,21 +176,17 @@ class IAM(object):
             if ex.response['Error']['Code'] == 'NoSuchEntity':
                 role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
                 log.info('Role created, role=%s' % role_name)
-                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
-                log.info('Attached policy, policy=AWSLambdaKinesisExecutionRole, role=%s' % role_name)
+                self.attach_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
+
                 try:
-                    policy = self.iam.create_policy(PolicyName=IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME,
-                                                    PolicyDocument=json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH, indent=4))
-                    policy_arn = policy['Policy']['Arn']
-                    log.info("Created Policy, policy=%s" % IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME)
+                    policy_arn = self.create_policy(IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME,
+                                                    json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH, indent=4))
                 except botocore.exceptions.ClientError as exx:
                     if exx.response['Error']['Code'] == 'EntityAlreadyExists':
-                        policy = self.iam.get_policy(PolicyArn=IAM.POLICY_LAMBDA_KINESIS_PUBLISH_ARN)
-                        policy_arn = policy['Policy']['Arn']
+                        policy_arn = self.get_policy(IAM.POLICY_LAMBDA_KINESIS_PUBLISH_ARN)
                     else:
                         raise exx
-                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-                log.info('Attached policy, policy=%s, role=%s' % (IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME, role_name))
+                self.attach_role_policy(role_name, policy_arn)
             else:
                 log.error('Creating role failed, role=%s, error=%s' % (role_name, str(ex)))
                 raise ex

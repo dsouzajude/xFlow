@@ -63,20 +63,41 @@ class Lambda(object):
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
                 handler = '%s.%s' % (name, handler)
-                function = self.awslambda \
-                               .create_function(FunctionName=name,
-                                                Runtime=runtime,
-                                                Role=self.role_arn,
-                                                Handler=handler,
-                                                Description=description or name,
-                                                Timeout=self.timeout_time,
-                                                Publish=True,
-                                                Code=code,
-                                                VpcConfig={
-                                                 'SubnetIds': self.subnet_ids,
-                                                 'SecurityGroupIds': self.security_group_ids
-                                                })
-                log.info("Lambda created, lambda=%s" % name)
+                # Amazon needs a few seconds to replicate the new role through
+                # all regions. So creating a Lambda function just after the role
+                # creation would sometimes result in botocore.exceptions.ClientError:
+                # An error occurred (InvalidParameterValueException) when calling
+                # the CreateFunction operation: The role defined for the function
+                # cannot be assumed by Lambda.
+                lambda_created = False
+                last_ex = None
+                for i in range(1, 10):
+                    try:
+                        function = self.awslambda \
+                                       .create_function(FunctionName=name,
+                                                        Runtime=runtime,
+                                                        Role=self.role_arn,
+                                                        Handler=handler,
+                                                        Description=description or name,
+                                                        Timeout=self.timeout_time,
+                                                        Publish=True,
+                                                        Code=code,
+                                                        VpcConfig={
+                                                         'SubnetIds': self.subnet_ids,
+                                                         'SecurityGroupIds': self.security_group_ids
+                                                        })
+                        log.info("Lambda created, lambda=%s" % name)
+                        lambda_created = True
+                        break
+                    except botocore.exceptions.ClientError as exx:
+                        if exx.response['Error']['Code'] == 'InvalidParameterValueException':
+                            time.sleep(3)
+                            last_ex = exx
+                            log.info('Retrying to create lambda, lambda=%s' % name)
+                        else:
+                            raise exx
+                if not lambda_created:
+                    raise last_ex
             else:
                 raise ex
 
@@ -100,16 +121,30 @@ class Lambda(object):
 class IAM(object):
 
     POLICY_LAMBDA_KINESIS_EXECUTION_ROLE = 'arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole'
+    POLICY_LAMBDA_KINESIS_PUBLISH_NAME = "AWSLambdaKinesisPublishRole"
+    POLICY_LAMBDA_KINESIS_PUBLISH_ARN = "arn:aws:iam::232835152771:policy/%s" % POLICY_LAMBDA_KINESIS_PUBLISH_NAME
+    POLICY_LAMBDA_KINESIS_PUBLISH = {
+        'Version': '2012-10-17',
+        'Statement': [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "kinesis:PutRecord"
+              ],
+              "Resource": "*"
+            },
+        ]
+    }
     POLICY_ASSUME_LAMBDA_ROLE = {
         'Version': '2012-10-17',
-        'Statement': [{
+        'Statement': {
             'Sid': '',
             'Effect': 'Allow',
             'Principal': {
                 'Service': 'lambda.amazonaws.com'
             },
             'Action': 'sts:AssumeRole'
-        }]
+        }
     }
 
     def __init__(self, region,
@@ -127,7 +162,20 @@ class IAM(object):
                 role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
                 log.info('Role created, role=%s' % role_name)
                 self.iam.attach_role_policy(RoleName=role_name, PolicyArn=IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
-                log.info('Attached policy to role')
+                log.info('Attached policy, policy=AWSLambdaKinesisExecutionRole, role=%s' % role_name)
+                try:
+                    policy = self.iam.create_policy(PolicyName=IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME,
+                                                    PolicyDocument=json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH, indent=4))
+                    policy_arn = policy['Policy']['Arn']
+                    log.info("Created Policy, policy=%s" % IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME)
+                except botocore.exceptions.ClientError as exx:
+                    if exx.response['Error']['Code'] == 'EntityAlreadyExists':
+                        policy = self.iam.get_policy(PolicyArn=IAM.POLICY_LAMBDA_KINESIS_PUBLISH_ARN)
+                        policy_arn = policy['Policy']['Arn']
+                    else:
+                        raise exx
+                self.iam.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
+                log.info('Attached policy, policy=%s, role=%s' % (IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME, role_name))
             else:
                 log.error('Creating role failed, role=%s, error=%s' % (role_name, str(ex)))
                 raise ex

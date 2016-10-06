@@ -30,7 +30,7 @@ def _get_args():
 
     xflow <CONFIG> [-v | --validate]
     xflow <CONFIG> [-c | --configure]
-    xflow <CONFIG> [-p | --publish <STREAM> <JSON>]
+    xflow <CONFIG> [-p | --publish <STREAM> <DATA>]
     xflow <CONFIG> [--log-level <LEVEL>]
 
     '''
@@ -38,7 +38,7 @@ def _get_args():
     parser.add_argument('CONFIG', type=str, help='Absolute path to config file')
     parser.add_argument('-v', action='store_true', help='Validates the config file')
     parser.add_argument('-c', action='store_true', help='Configures lambdas, streams and the subscriptions')
-    parser.add_argument('-p', type=str, nargs=2, metavar=("<STREAM>","<JSON>"), required=False, help='Publishes json data to a stream')
+    parser.add_argument('-p', type=str, nargs=2, metavar=("<STREAM>","<DATA>"), required=False, help='Publishes data to a stream')
     parser.add_argument('--log-level', type=str, default='INFO', help='Setting log level [DEBUG|INFO|WARNING|ERROR|CRITICAL]')
     return vars(parser.parse_args())
 
@@ -101,10 +101,7 @@ def main():
     if args['p']:
         stream = args['p'][0]
         data = args['p'][1]
-        if not utils.is_valid_json(data):
-            log.error('Invalid json provided')
-            sys.exit(1)
-        log.info('\nPublishing to stream: %s\n\nData: %s' % (stream, json.dumps(json.loads(data), indent=4)))
+        log.info('\nPublishing to stream: %s\n\nData: %s' % (stream, data))
         engine.publish(stream, data)
         log.info('Published')
 

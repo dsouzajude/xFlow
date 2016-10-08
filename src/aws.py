@@ -212,3 +212,21 @@ class Kinesis(object):
     def publish(self, stream_name, data):
         self.kinesis.put_record(StreamName=stream_name, Data=data, PartitionKey=data)
         ## TODO: capture error if stream doesn't exist
+
+
+class CloudWatchLogs(object):
+
+    def __init__(self, region,
+                 aws_access_key_id=None, aws_secret_access_key=None):
+        self.logs = boto3.client('logs')
+
+    def create_log_group(self, name):
+        try:
+            self.logs.create_log_group(logGroupName=name)
+            log.info('LogGroup created, log_group=%s' % name)
+        except botocore.exceptions.ClientError as ex:
+            if ex.response['Error']['Code'] != 'ResourceAlreadyExistsException':
+                log.info('LogGroup exists, log_group=%s' % name)
+                raise ex
+
+    

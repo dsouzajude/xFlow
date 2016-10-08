@@ -102,6 +102,30 @@ subscriptions:
 
   `xflow track -flow word_count -execution_id 112233`
 
+  An instance of a particular workflow is tracked via its `execution_id`. Therefore all events defined
+  in a workflow must contain this field. Since it is required to have the events defined in order it
+  will then be easy to determine which events were successfully processed and which were not at any
+  particular time in the last 7 days.
+
+  The goal of the tracker is to return the state of all events in the workflow given as input
+  the `workflow_id` and its `execution_id`. The state would indicate whether the event was processed or not.
+  It will then grab the last unprocessed event and fetch all logs for its subscribers (the lambdas) that failed
+  to process that event.
+
+  For this to work, there would be a separate tracker for every workflow defined. The tracker would subscribe
+  itself to every stream in that workflow and hence it would receive events published to that stream. The tracker itself would be a lambda function and its name would be `tracker_<workflow_id>`. Hence it will be invoked on every
+  successful publishing of an event to the stream.
+
+  The actual tracking is done via AWS CloudWatchLogs. For every workflow a CloudWatch `LogGroup` is created. And for every instance of a workflow execution, a `LogStream` would be created.
+
+  Hence, when an event is published to a stream, the tracker would receive the event and extract the
+  `execution_id`. It will create a new log stream from this execution_id if not already created. It will
+  then store the event in that stream. Since the lambda's name is generated from the workflow_id, it is also
+  easy to extract the log group for the log stream.
+
+  For every subsequent event published to the kinesis stream, the corresponding lambda for the workflow will be invoked and it will save the event to the log stream.
+
+
 
 xFlow Requirements (and roadmap):
 =================================

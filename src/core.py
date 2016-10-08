@@ -1,10 +1,12 @@
 import os
+import json
 import logging
 import pykwalify
 from pykwalify.core import Core
 
 import utils
-from aws import Lambda, Kinesis, IAM
+import tracker
+from aws import Lambda, Kinesis, IAM, CloudWatchLogs
 
 
 log = logging.getLogger(__name__)
@@ -39,6 +41,7 @@ class Engine(object):
                                            timeout_time,
                                            aws_access_key_id, aws_secret_access_key)
         self.kinesis = self.setup_kinesis(region, aws_access_key_id, aws_secret_access_key)
+        self.cwlogs = self.setup_cloud_watch_logs(region, aws_access_key_id, aws_secret_access_key)
 
     def setup_lambda(self, region, role_name, timeout_time, aws_access_key_id, aws_secret_access_key):
         iam = IAM(region,
@@ -60,6 +63,14 @@ class Engine(object):
                        aws_secret_access_key=aws_secret_access_key)
         log.info('AWS Kinesis initialized')
         return awskinesis
+
+    def setup_cloud_watch_logs(self, region,
+                               aws_access_key_id, aws_secret_access_key):
+        cwlogs = CloudWatchLogs(region,
+                       aws_access_key_id=aws_access_key_id,
+                       aws_secret_access_key=aws_secret_access_key)
+        log.info('AWS CloudWatchLogs initialized')
+        return cwlogs
 
     def setup_lambdas(self):
         log.info('Setting up lambdas')
@@ -93,15 +104,80 @@ class Engine(object):
             event_name = s['event']
             lambda_subscribers = s.get('subscribers') or []
             stream_arn = self.kinesis.get_or_create_stream(event_name)
+            stream_mappings[event_name] = stream_arn
             for lambda_name in lambda_subscribers:
                 lambda_arn = lambda_mappings[lambda_name]
                 self.awslambda.subscribe_to_stream(lambda_arn, stream_arn)
         log.info("Setup all streams and subscriptions")
+        return stream_mappings
+
+    def setup_tracker(self, workflow_id, stream_arns):
+        ''' The tracker is a lambda function that will subscribe itself to
+        every stream in the workflow. Its function is to receive events from
+        the stream and log them to CloudWatchLogs for tracking.
+        '''
+        config_filename = "tracker.cfg"
+        tracker_filename = "tracker_%s.py" % workflow_id
+        log_group_name = "/xFlow/track/%s" % workflow_id
+
+        tracker_name = tracker_filename.split(".py")[0]
+        handler = "log"
+        runtime = "python2.7"
+        description = "A tracker that logs events from streams defined in workflow %s" % workflow_id
+
+        def generate_tracker_config(workflow_id):
+            config = json.dumps({
+                "workflow_id": workflow_id,
+                "log_group_name": log_group_name,
+            })
+            utils.write_file(config_filename, config)
+
+        # Create lambda and package config information with it
+        generate_tracker_config(workflow_id)
+        tracker.generate_code(tracker_filename)
+        tracker_arn = self.awslambda \
+                         .create_or_update_function(tracker_name,
+                                                    runtime,
+                                                    handler,
+                                                    description=description,
+                                                    local_filename=tracker_filename,
+                                                    otherfiles=[config_filename])
+        log.info("Created workflow tracker, tracker=%s, workflow_id=%s" % (tracker_name, workflow_id))
+
+        # Subscribe lambda to streams in the workflow
+        for stream_arn in stream_arns:
+            self.awslambda.subscribe_to_stream(tracker_arn, stream_arn)
+            log.info("Subscribed tracker to stream, tracker=%s, stream=%s" % (tracker_name, utils.get_name_from_arn(stream_arn)))
+
+        # Create log group for lambda to log stream events
+        self.cwlogs.create_log_group(log_group_name)
+        log.info("Created workflow log group, workflow_id=%s, log_group=%s" % (workflow_id, log_group_name))
+
+
+    def setup_workflows(self, stream_mappings):
+        ''' This will setup and upload a tracker (which is essentially a lambda)
+        that will be subscribed to all streams in the workflow. The tracker
+        will be named from the `workflow_id`.
+
+        It will also create a CloudWatchLog Group so that the tracker can put
+        log events to for every event it receives during workflow execution.
+        The log group would be named from the `workflow_id`.
+
+        The same is repeated for every workflow in the configuration.
+        '''
+        workflows = self.config.get('workflows') or []
+        for w in workflows:
+            workflow_id = w['id']
+            log.info("Setting up workflow, workflow_id=%s" % workflow_id)
+            stream_names = w['flow']
+            stream_arns = [stream_mappings[name] for name in stream_names]
+            self.setup_tracker(workflow_id, stream_arns)
+            log.info("Created workflow, workflow_id=%s" % workflow_id)
 
     @staticmethod
     def validate_config(config_file):
         ''' Validates config against the schema
-        And also validates the lambdas in the subscriptions are defined
+        And also validates the lambdas in the subscriptions that they are defined
         Raises ConfigValidationError if not valid.
         '''
         c = Core(source_file=config_file, schema_files=["schema.yaml"])
@@ -110,19 +186,31 @@ class Engine(object):
         except pykwalify.errors.SchemaError as ex:
             raise ConfigValidationError(str(ex))
 
-        subscriptions = config.get('subscriptions', [])
+        subscriptions = config.get('subscriptions') or []
         lambdas = config.get('lambdas')
         lambda_names = [l['name'] for l in lambdas]
+        subscription_events = []
         for ss in subscriptions:
+            event_name = ss['event']
+            subscription_events.append(event_name)
             subscribers = ss.get('subscribers') or []
             for s in subscribers:
                 if s not in lambda_names:
                     raise ConfigValidationError("Lambda not defined for subscriber %s" % s)
 
+        workflows = config.get('workflows') or []
+        for w in workflows:
+            workflow_id = w['id']
+            events = w.get('flow') or []
+            for e in events:
+                if e not in subscription_events:
+                    raise ConfigValidationError("Event %s not defined in workflow %s" % (e, workflow_id))
+
     def configure(self):
         ''' Creates the lambda functions, streams and lambda to stream mappings '''
         lambda_mappings = self.setup_lambdas()
-        self.setup_streams_and_subscriptions(lambda_mappings)
+        stream_mappings = self.setup_streams_and_subscriptions(lambda_mappings)
+        self.setup_workflows(stream_mappings)
 
     def publish(self, stream_name, data):
         self.kinesis.publish(stream_name, data)

@@ -11,7 +11,7 @@ Next step:
 
 - [DONE] Parse YAML file
 - [DONE] Parse command line (and give appropriate syntax error)
-- Logging of the program
+- [DONE] Logging of the program
 
 - Test pub/sub
 - Monitor Lambda functions

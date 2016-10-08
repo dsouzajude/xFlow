@@ -36,18 +36,18 @@ lambdas:
     runtime: python2.7
 
 subscriptions:
-  - name: FileUploaded
+  - event: FileUploaded
     subscribers:
       - lambda_file_reader
-  - name: FileDownloaded
+  - event: FileDownloaded
     subscribers:
       - lambda_parser
-  - name: FileParsed
+  - event: FileParsed
     subscribers:
       - lambda_combiner
-  - name: FileAggregated
+  - event: FileAggregated
     subscribers:
       - lambda_filter
-  - name: FileFiltered
+  - event: FileFiltered
     subscribers:
       - lambda_summarize

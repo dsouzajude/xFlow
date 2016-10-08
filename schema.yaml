@@ -59,7 +59,7 @@ mapping:
     sequence:
       - type: map
         mapping:
-          name:
+          event:
             type: str
             required: True
             pattern: ^[a-zA-Z]+$

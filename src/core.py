@@ -90,7 +90,7 @@ class Engine(object):
         stream_mappings = {}
         subscriptions = self.config.get('subscriptions')
         for s in subscriptions:
-            event_name = s['name']
+            event_name = s['event']
             lambda_subscribers = s.get('subscribers') or []
             stream_arn = self.kinesis.get_or_create_stream(event_name)
             for lambda_name in lambda_subscribers:

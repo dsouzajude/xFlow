@@ -29,6 +29,17 @@ def zip_file(filename):
         zf.write(filename, arch_name)
     return zip_filename
 
+def is_local_file(path):
+    return True if not get_scheme(path) and \
+                   not path.endswith('zip') else False
+
+def is_local_zip_file(path):
+    return True if not get_scheme(path) and \
+                   path.endswith('zip') else False
+
+def is_s3_file(path):
+    return True if get_scheme(path) == 's3' else False
+
 def get_zip_contents(zip_filename):
     with open(zip_filename, 'rb') as zip_blob:
         return zip_blob.read()

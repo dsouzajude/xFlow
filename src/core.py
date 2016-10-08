@@ -61,17 +61,6 @@ class Engine(object):
         log.info('AWS Kinesis initialized')
         return awskinesis
 
-    def is_s3(self, source):
-        return True if utils.get_scheme(source) == 's3' else False
-
-    def is_local_file(self, source):
-        return True if not utils.get_scheme(source) and \
-                       not source.endswith('zip') else False
-
-    def is_local_zipfile(self, source):
-        return True if not utils.get_scheme(source) and \
-                       source.endswith('zip') else False
-
     def setup_lambdas(self):
         log.info('Setting up lambdas')
         lambda_mappings = {}
@@ -80,11 +69,11 @@ class Engine(object):
             s3_filename = zip_filename = local_filename = None
             name, runtime, source, handler, description = l['name'], l['runtime'], l['source'], l['handler'], l['description']
 
-            if self.is_s3(source):
+            if utils.is_s3_file(source):
                 s3_filename = source
-            if self.is_local_file(source):
+            if utils.is_local_file(source):
                 local_filename = source
-            if self.is_local_zipfile(source):
+            if utils.is_local_zip_file(source):
                 zip_filename = source
 
             lambda_arn = self.awslambda \

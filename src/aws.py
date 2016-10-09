@@ -27,15 +27,15 @@ class Lambda(object):
                                       aws_access_key_id=aws_access_key_id,
                                       aws_secret_access_key=aws_secret_access_key)
 
-    def create_or_update_function(self, name, runtime, handler, description=None,
-                                  zip_filename=None, s3_filename=None, local_filename=None):
-        # TODO: Verify if function code does get updated
+    def create_or_update_function(self, name, runtime, handler,
+                                  description=None, zip_filename=None,
+                                  s3_filename=None, local_filename=None, otherfiles=None):
         if zip_filename:
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
             log.debug('source=zip, file=%s' % zip_filename)
         elif local_filename:
-            zip_filename = utils.zip_file(local_filename)
+            zip_filename = utils.zip_file(local_filename, otherfiles=otherfiles)
             zip_blob = utils.get_zip_contents(zip_filename)
             code = {'ZipFile': zip_blob}
             log.debug('source=local, file=%s' % local_filename)
@@ -105,21 +105,33 @@ class Lambda(object):
         return function_arn
 
     def subscribe_to_stream(self, function_arn, stream_arn):
-        try:
-            mapping = self.awslambda \
-                          .create_event_source_mapping(EventSourceArn=stream_arn,
-                                                       FunctionName=function_arn,
-                                                       BatchSize=1,
-                                                       StartingPosition='TRIM_HORIZON')
-            log.info('Subscription created, stream=%s, function=%s' % (function_arn, stream_arn))
-        except botocore.exceptions.ClientError as ex:
-            if ex.response['Error']['Code'] != 'ResourceConflictException':
-                log.error('Subscription failed, stream=%s, function=%s, error=%s' % (stream_arn, function_arn, str(ex)))
-                raise ex
+        # Once the role policies are attached, it takes time until AWS fully
+        # propagates it to its regions. During this time we might get an
+        # InvalidParameterValueException so we need to retry.
+        for i in range(1, 10):
+            try:
+                self.awslambda \
+                    .create_event_source_mapping(EventSourceArn=stream_arn,
+                                                 FunctionName=function_arn,
+                                                 BatchSize=1,
+                                                 StartingPosition='TRIM_HORIZON')
+                log.info('Subscription created, function=%s, stream=%s' % (function_arn, stream_arn))
+                break
+            except botocore.exceptions.ClientError as ex:
+                if ex.response['Error']['Code'] == 'InvalidParameterValueException':
+                    log.info('Retrying subscription, function=%s, stream=%s ...' % (function_arn, stream_arn))
+                    time.sleep(3)
+                elif ex.response['Error']['Code'] == 'ResourceConflictException':
+                    log.info('Subscription exists, function=%s, stream=%s' % (function_arn, stream_arn))
+                    break
+                else:
+                    log.error('Subscription failed, function=%s, stream=%s, error=%s' % (function_arn, stream_arn, str(ex)))
+                    raise ex
 
 
 class IAM(object):
 
+    POLICY_LAMBDA_CWLOGS_READONLY_ROLE = 'arn:aws:iam::aws:policy/CloudWatchLogsReadOnlyAccess'
     POLICY_LAMBDA_KINESIS_EXECUTION_ROLE = 'arn:aws:iam::aws:policy/service-role/AWSLambdaKinesisExecutionRole'
     POLICY_LAMBDA_KINESIS_PUBLISH_NAME = "AWSLambdaKinesisPublishRole"
     POLICY_LAMBDA_KINESIS_PUBLISH = {
@@ -170,12 +182,14 @@ class IAM(object):
             if ex.response['Error']['Code'] == 'NoSuchEntity':
                 role = self.iam.create_role(RoleName=role_name, AssumeRolePolicyDocument=json.dumps(IAM.POLICY_ASSUME_LAMBDA_ROLE))
                 log.info('Role created, role=%s' % role_name)
-                self.attach_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
-                self.put_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME, json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH))
             else:
                 log.error('Creating role failed, role=%s, error=%s' % (role_name, str(ex)))
                 raise ex
 
+
+        self.attach_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_EXECUTION_ROLE)
+        self.attach_role_policy(role_name, IAM.POLICY_LAMBDA_CWLOGS_READONLY_ROLE)
+        self.put_role_policy(role_name, IAM.POLICY_LAMBDA_KINESIS_PUBLISH_NAME, json.dumps(IAM.POLICY_LAMBDA_KINESIS_PUBLISH))
         role_arn = role['Role']['Arn']
         return role_arn
 
@@ -228,5 +242,3 @@ class CloudWatchLogs(object):
             if ex.response['Error']['Code'] != 'ResourceAlreadyExistsException':
                 log.info('LogGroup exists, log_group=%s' % name)
                 raise ex
-
-    

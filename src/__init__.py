@@ -5,7 +5,6 @@
 
 
 import sys
-import json
 import argparse
 import logging
 from logging.config import dictConfig
@@ -90,6 +89,7 @@ def main():
 
     log.info('Initializing xFlow engine')
     engine = core.Engine(config_file)
+    log.info('Config is valid')
 
     # Configure the lambdas, streams and subscriptions
     if args['c']:

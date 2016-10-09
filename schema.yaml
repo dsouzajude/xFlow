@@ -68,3 +68,18 @@ mapping:
             type: seq
             sequence:
               - type: str
+
+  workflows:
+    type: seq
+    sequence:
+      - type: map
+        mapping:
+          id:
+            type: str
+            required: True
+            pattern: ^[a-zA-Z_]+$
+          flow:
+            required: True
+            type: seq
+            sequence:
+              - type: str

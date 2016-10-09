@@ -51,3 +51,11 @@ subscriptions:
   - event: FileFiltered
     subscribers:
       - lambda_summarize
+
+# Optional - Can be used to track a complete workflow
+workflows:
+  - id: compute_word_count
+    flow:
+      - FileUploaded
+      - FileDownloaded
+      - FileParsed

@@ -6,7 +6,8 @@ from pykwalify.core import Core
 
 import utils
 import tracker
-from aws import Lambda, Kinesis, IAM, CloudWatchLogs
+from aws import Lambda, Kinesis, IAM, CloudWatchLogs, \
+                CloudWatchLogDoesNotExist, CloudWatchStreamDoesNotExist
 
 
 log = logging.getLogger(__name__)
@@ -15,6 +16,10 @@ LAMBDA_EXECUTE_ROLE_NAME = 'lambda-execute'
 
 
 class ConfigValidationError(Exception):
+    pass
+
+
+class WorkflowDoesNotExist(Exception):
     pass
 
 
@@ -111,6 +116,10 @@ class Engine(object):
         log.info("Setup all streams and subscriptions")
         return stream_mappings
 
+    def _generate_log_group_name(self, workflow_id):
+        log_group_name = '/xFlow/track/%s' % workflow_id
+        return log_group_name
+
     def setup_tracker(self, workflow_id, stream_arns):
         ''' The tracker is a lambda function that will subscribe itself to
         every stream in the workflow. Its function is to receive events from
@@ -118,7 +127,7 @@ class Engine(object):
         '''
         config_filename = "tracker.cfg"
         tracker_filename = "tracker_%s.py" % workflow_id
-        log_group_name = "/xFlow/track/%s" % workflow_id
+        log_group_name = self._generate_log_group_name(workflow_id)
 
         tracker_name = tracker_filename.split(".py")[0]
         handler = "log"
@@ -215,3 +224,36 @@ class Engine(object):
     def publish(self, stream_name, data):
         self.kinesis.publish(stream_name, data)
         log.debug('publishing, stream=%s, data=%s' % (stream_name, data))
+
+    def track(self, workflow_id, execution_id):
+        ''' Tracks the workflow by printing all the events that were
+        processed in the workflow.
+        '''
+        # Get defined workflow events
+        workflows = self.config.get('workflows') or []
+        workflow_to_track = [w for w in workflows if w['id'] == workflow_id]
+        if not workflow_to_track:
+            log.error("Workflow not found, workflow_id=%s" % workflow_id)
+            raise WorkflowDoesNotExist("workflow_id=%s" % workflow_id)
+        workflow_events = workflow_to_track[0].get("flow") or []
+        workflow_events = {e: 'unknown_state' for e in workflow_events}
+
+        # Get events processed
+        log_group_name = self._generate_log_group_name(workflow_id)
+        log_stream_name = tracker.generate_log_stream_name(log_group_name, execution_id)
+        logged_events = self.cwlogs.get_log_events(log_group_name, log_stream_name)
+
+        # Summarize state of events
+        # The tracker adds the "event_name" when logging to the stream
+        for e in logged_events:
+            data = e['data']
+            event_name = data['event_name']
+            if workflow_events.get(event_name):
+                workflow_events[event_name] = "processed"
+            else:
+                workflow_events[event_name] = "processed_but_unexpected"
+
+        return {
+            "events_defined": workflow_events,
+            "events_processed": logged_events
+        }

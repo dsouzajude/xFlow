@@ -13,9 +13,10 @@ Next step:
 - [DONE] Parse command line (and give appropriate syntax error)
 - [DONE] Logging of the program
 
+- [DONE] Create a workflow
+- [DONE] Test the workflow
+- [DONE] Track workflow
+
+- Fix all TODOs
 - Test pub/sub
 - Monitor Lambda functions
-
-- Create a workflow
-- Test the workflow
-- Track workflow

@@ -33,8 +33,8 @@ def get_log_group_name(config):
     return config['log_group_name']
 
 
-def generate_log_stream_name(log_group, execution_id):
-    return "%s/%s" % (log_group, execution_id)
+def generate_log_stream_name(log_group_name, execution_id):
+    return "%s/%s" % (log_group_name, execution_id)
 
 
 def logkv(message, **kwargs):

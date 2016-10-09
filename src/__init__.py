@@ -5,6 +5,7 @@
 
 
 import sys
+import json
 import argparse
 import logging
 from logging.config import dictConfig
@@ -30,6 +31,7 @@ def _get_args():
     xflow <CONFIG> [-v | --validate]
     xflow <CONFIG> [-c | --configure]
     xflow <CONFIG> [-p | --publish <STREAM> <DATA>]
+    xflow <CONFIG> [-t | --track <WORKFLOW_ID> <EXECUTION_ID>]
     xflow <CONFIG> [--log-level <LEVEL>]
 
     '''
@@ -38,6 +40,7 @@ def _get_args():
     parser.add_argument('-v', action='store_true', help='Validates the config file')
     parser.add_argument('-c', action='store_true', help='Configures lambdas, streams and the subscriptions')
     parser.add_argument('-p', type=str, nargs=2, metavar=("<STREAM>","<DATA>"), required=False, help='Publishes data to a stream')
+    parser.add_argument('-t', type=str, nargs=2, metavar=("<WORKFLOW_ID>","<EXECUTION_ID>"), required=False, help='Tracks a workflow')
     parser.add_argument('--log-level', type=str, default='INFO', help='Setting log level [DEBUG|INFO|WARNING|ERROR|CRITICAL]')
     return vars(parser.parse_args())
 
@@ -101,9 +104,23 @@ def main():
     if args['p']:
         stream = args['p'][0]
         data = args['p'][1]
-        log.info('\nPublishing to stream: %s\n\nData: %s' % (stream, data))
+        log.info('\n\n\nPublishing to stream: %s\n\nData: %s' % (stream, data))
         engine.publish(stream, data)
         log.info('Published')
+
+    # Track a workflow
+    if args['t']:
+        workflow_id = args['t'][0]
+        execution_id = args['t'][1]
+        log.info("\n\n\nTracking workflow, workflow_id=%s, execution_id=%s" % (workflow_id, execution_id))
+        try:
+            tracking_info = engine.track(workflow_id, execution_id)
+            print json.dumps(tracking_info, indent=4)
+        except (core.CloudWatchStreamDoesNotExist,
+                core.WorkflowDoesNotExist,
+                core.CloudWatchLogDoesNotExist):
+            sys.exit(1)
+
 
 
 if __name__ == '__main__':

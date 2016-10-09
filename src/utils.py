@@ -84,3 +84,7 @@ def get_scheme(url):
 
 def get_name_from_arn(arn):
     return arn.rsplit(":", 1)[1]
+
+
+def format_datetime(dt):
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")

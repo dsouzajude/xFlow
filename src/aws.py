@@ -3,6 +3,7 @@ import json
 import logging
 import boto3
 import botocore
+from datetime import datetime
 
 import utils
 
@@ -11,6 +12,14 @@ log = logging.getLogger(__name__)
 
 
 class MissingSourceCodeFileError(Exception):
+    pass
+
+
+class CloudWatchStreamDoesNotExist(Exception):
+    pass
+
+
+class CloudWatchLogDoesNotExist(Exception):
     pass
 
 
@@ -232,13 +241,51 @@ class CloudWatchLogs(object):
 
     def __init__(self, region,
                  aws_access_key_id=None, aws_secret_access_key=None):
-        self.logs = boto3.client('logs')
+        self.cwlogs = boto3.client('logs')
 
     def create_log_group(self, name):
         try:
-            self.logs.create_log_group(logGroupName=name)
+            self.cwlogs.create_log_group(logGroupName=name)
             log.info('LogGroup created, log_group=%s' % name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] != 'ResourceAlreadyExistsException':
-                log.info('LogGroup exists, log_group=%s' % name)
+                log.error("Unable to create LogGroup, log_group=%s" % name)
                 raise ex
+            else:
+                log.info('LogGroup exists, log_group=%s' % name)
+
+    def get_log_events(self, log_group_name, log_stream_name):
+        # TODO: Raise error if log_group_name and log_stream_name does not exists
+        all_events = []
+        next_token = None
+        proceed = True
+        while proceed:
+            # Apparently it seems that the boto3 CloudWatchLogs won't accept
+            # a value of None or '' for the nextToken field. Ridiculous!!!
+            if next_token:
+                res = self.cwlogs \
+                             .get_log_events(logGroupName=log_group_name,
+                                             logStreamName=log_stream_name,
+                                             startFromHead=True,
+                                             nextToken=next_token)
+            else:
+                res = self.cwlogs \
+                             .get_log_events(logGroupName=log_group_name,
+                                             logStreamName=log_stream_name,
+                                             startFromHead=True)
+            events = res['events']
+            for e in events:
+                ts = datetime.fromtimestamp(e['timestamp'] / 1000)
+                ts = utils.format_datetime(ts)
+                message = json.loads(e['message'])
+                all_events.append({
+                    "timestamp": ts,
+                    "data": message
+                })
+
+            if next_token == res['nextForwardToken']:
+                proceed = False
+            else:
+                next_token = res['nextForwardToken']
+
+        return all_events

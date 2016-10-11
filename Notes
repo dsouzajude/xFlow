@@ -17,6 +17,11 @@ Next step:
 - [DONE] Test the workflow
 - [DONE] Track workflow
 
+- REST API
+  - POST /publish
+  - POST /workflows
+  - GET /workflows/<workflow_id>/track
+
 - Fix all TODOs
 - Test pub/sub
 - Monitor Lambda functions

@@ -13,6 +13,9 @@ from aws import Lambda, Kinesis, IAM, CloudWatchLogs, \
 log = logging.getLogger(__name__)
 
 LAMBDA_EXECUTE_ROLE_NAME = 'lambda-execute'
+STATE_RECEIVED = "received"
+STATE_RECEIVED_UNEXPECTED = "received_but_unexpected"
+STATE_UNKNOWN = "uknown_state"
 
 
 class ConfigValidationError(Exception):
@@ -242,7 +245,7 @@ class Engine(object):
             log.error("Workflow not found, workflow_id=%s" % workflow_id)
             raise WorkflowDoesNotExist("workflow_id=%s" % workflow_id)
         workflow_events = workflow_to_track[0].get("flow") or []
-        workflow_events = {e: 'unknown_state' for e in workflow_events}
+        workflow_events = {e: STATE_UNKNOWN for e in workflow_events}
 
         # Get events received
         log_group_name = self._generate_log_group_name(workflow_id)
@@ -265,9 +268,9 @@ class Engine(object):
             data = e['data']
             event_name = data['event_name']
             if workflow_events.get(event_name):
-                workflow_events[event_name] = "received"
+                workflow_events[event_name] = STATE_RECEIVED
             else:
-                workflow_events[event_name] = "received_but_unexpected"
+                workflow_events[event_name] = STATE_RECEIVED_UNEXPECTED
 
         # Identify the last received event in the workflow
         # And all the lambda functions subscribed to that event
@@ -281,11 +284,19 @@ class Engine(object):
             last_received_event = None
             lambdas_of_last_received_event = None
 
+        events_received = [e for e, state in workflow_events.items() if state != STATE_UNKNOWN]
+        events_not_received = [e for e, state in workflow_events.items() if state == STATE_UNKNOWN]
+        execution_path = " ---> ".join(events_received)
+        if events_not_received:
+            execution_path += " ---> X - - -> "
+            execution_path += " - - - > ".join(events_not_received)
+
         return {
             "events_defined": workflow_events,
             "events_received": logged_events,
             "tracking_summary": {
                 "last_received_event": last_received_event,
-                "subscribers": lambdas_of_last_received_event
+                "subscribers": lambdas_of_last_received_event,
+                "execution_path": execution_path
             }
         }

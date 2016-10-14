@@ -120,6 +120,12 @@ class Engine(object):
         log_group_name = '/xFlow/track/%s' % workflow_id
         return log_group_name
 
+    def _get_subscribers(self, event_name):
+        all_subscriptions = self.config.get('subscriptions') or []
+        event_subscription = [s for s in all_subscriptions if s['event'] == event_name]
+        subscribers = event_subscription[0]['subscribers'] if event_subscription else []
+        return subscribers
+
     def setup_tracker(self, workflow_id, stream_arns):
         ''' The tracker is a lambda function that will subscribe itself to
         every stream in the workflow. Its function is to receive events from
@@ -238,10 +244,20 @@ class Engine(object):
         workflow_events = workflow_to_track[0].get("flow") or []
         workflow_events = {e: 'unknown_state' for e in workflow_events}
 
-        # Get events processed
+        # Get events received
         log_group_name = self._generate_log_group_name(workflow_id)
         log_stream_name = tracker.generate_log_stream_name(log_group_name, execution_id)
-        logged_events = self.cwlogs.get_log_events(log_group_name, log_stream_name)
+        logged_events = []
+        try:
+            logged_events = self.cwlogs.get_log_events(log_group_name, log_stream_name)
+        except CloudWatchStreamDoesNotExist as ex:
+            log.error("""No executions found, workflow_id=%s,
+                      execution_id=%s""" % (workflow_id, execution_id))
+            logged_events = []
+        except CloudWatchLogDoesNotExist as ex:
+            log.error("""Something went wrong, Log group was not created,
+                      workflow_id=%s, log_group_name=%s""" % (workflow_id, log_group_name))
+            raise ex
 
         # Summarize state of events
         # The tracker adds the "event_name" when logging to the stream
@@ -249,11 +265,27 @@ class Engine(object):
             data = e['data']
             event_name = data['event_name']
             if workflow_events.get(event_name):
-                workflow_events[event_name] = "processed"
+                workflow_events[event_name] = "received"
             else:
-                workflow_events[event_name] = "processed_but_unexpected"
+                workflow_events[event_name] = "received_but_unexpected"
+
+        # Identify the last received event in the workflow
+        # And all the lambda functions subscribed to that event
+        # These would indicate that something might have gone wrong with these
+        #   lambdas as they were not able to publish the next events in the workflow
+        if logged_events:
+            num_logged_events = len(logged_events)
+            last_received_event = logged_events[num_logged_events -1]['data']['event_name']
+            lambdas_of_last_received_event = self._get_subscribers(last_received_event)
+        else:
+            last_received_event = None
+            lambdas_of_last_received_event = None
 
         return {
             "events_defined": workflow_events,
-            "events_processed": logged_events
+            "events_received": logged_events,
+            "tracking_summary": {
+                "last_received_event": last_received_event,
+                "subscribers": lambdas_of_last_received_event
+            }
         }

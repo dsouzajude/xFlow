@@ -262,17 +262,34 @@ class CloudWatchLogs(object):
         while proceed:
             # Apparently it seems that the boto3 CloudWatchLogs won't accept
             # a value of None or '' for the nextToken field. Ridiculous!!!
-            if next_token:
-                res = self.cwlogs \
-                             .get_log_events(logGroupName=log_group_name,
-                                             logStreamName=log_stream_name,
-                                             startFromHead=True,
-                                             nextToken=next_token)
-            else:
-                res = self.cwlogs \
-                             .get_log_events(logGroupName=log_group_name,
-                                             logStreamName=log_stream_name,
-                                             startFromHead=True)
+            try:
+                if next_token:
+                    res = self.cwlogs \
+                                 .get_log_events(logGroupName=log_group_name,
+                                                 logStreamName=log_stream_name,
+                                                 startFromHead=True,
+                                                 nextToken=next_token)
+                else:
+                    res = self.cwlogs \
+                                 .get_log_events(logGroupName=log_group_name,
+                                                 logStreamName=log_stream_name,
+                                                 startFromHead=True)
+            except botocore.exceptions.ClientError as ex:
+                print "error_code=%s, err=%s" % (ex.response['Error']['Code'], str(ex))
+                if ex.response['Error']['Code'] == 'ResourceNotFoundException':
+                    if "stream" in str(ex):
+                        log.error("Log stream does not exist, log_group_name=%s, log_stream_name=%s" % (log_group_name, log_stream_name))
+                        raise CloudWatchStreamDoesNotExist("log_group_name=%s, log_stream_name=%s" % (log_group_name, log_stream_name))
+                    elif "group" in str(ex):
+                        log.error("Log group does not exist, log_group_name=%s" % log_group_name)
+                        raise CloudWatchLogDoesNotExist("log_group_name=%s" % log_group_name)
+                    else:
+                        log.error("Unable to get log events, log_group=%s, log_stream=%s" % (log_group_name, log_stream_name))
+                        raise ex
+                else:
+                    log.error("Unable to get log events, log_group=%s, log_stream=%s" % (log_group_name, log_stream_name))
+                    raise ex
+
             events = res['events']
             for e in events:
                 ts = datetime.fromtimestamp(e['timestamp'] / 1000)

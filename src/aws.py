@@ -26,8 +26,9 @@ class CloudWatchLogDoesNotExist(Exception):
 class Lambda(object):
 
     def __init__(self, region, role_arn,
+                 aws_access_key_id=None, aws_secret_access_key=None,
                  subnet_ids=[], security_group_ids=[],
-                 timeout_time=5, aws_access_key_id=None, aws_secret_access_key=None):
+                 timeout_time=5):
         self.role_arn = role_arn
         self.timeout_time = timeout_time
         self.subnet_ids = subnet_ids

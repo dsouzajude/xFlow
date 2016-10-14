@@ -15,20 +15,18 @@ mapping:
         type: str
         pattern: ^[a-zA-Z0-9-]+$
         allowempty: True
-      vpc_id:
-        type: str
-        pattern: ^[a-zA-Z0-9-_]+$
-        allowempty: True
-      aws_access_key_id:
-        type: str
-        allowempty: True
-      aws_secret_access_key:
-        type: str
-        allowempty: True
       lambda_execution_role_name:
         type: str
         required: True
         pattern: ^[a-zA-Z0-9-_]+$
+      subnet_ids:
+        type: seq
+        sequence:
+          - type: str
+      security_group_ids:
+        type: seq
+        sequence:
+          - type: str
 
   lambdas:
     type: seq

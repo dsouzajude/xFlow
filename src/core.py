@@ -34,31 +34,37 @@ class Engine(object):
 
         aws_config = self.config.get('aws', {})
         region = os.environ.get('REGION') or aws_config.get('region')
-        vpc_id = os.environ.get('VPC_ID') or aws_config.get('vpc_id')
-        aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID') or aws_config.get('aws_access_key_id')
-        aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY') or aws_config.get('aws_secret_access_key')
+        aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+        subnet_ids = aws_config.get('subnet_ids') or []
+        security_group_ids = aws_config.get('security_group_ids') or []
         role_name = os.environ.get('LAMBDA_EXECUTION_ROLE_NAME') or aws_config.get('lambda_execution_role_name')
 
         general_config = self.config.get('general', {})
         timeout_time = int(os.environ.get('LAMBDA_TIMEOUT_TIME') or general_config.get('lambda_timeout_time') or 10)
 
-        log.debug('region=%s, vpc_id=%s, role_name=%s' % (region, vpc_id, role_name))
+        log.debug('region=%s, role_name=%s' % (region, role_name))
         log.debug('timeout_time=%s' % timeout_time)
         self.awslambda = self.setup_lambda(region,
                                            role_name,
                                            timeout_time,
-                                           aws_access_key_id, aws_secret_access_key)
+                                           aws_access_key_id,
+                                           aws_secret_access_key,
+                                           subnet_ids=subnet_ids,
+                                           security_group_ids=security_group_ids)
         self.kinesis = self.setup_kinesis(region, aws_access_key_id, aws_secret_access_key)
         self.cwlogs = self.setup_cloud_watch_logs(region, aws_access_key_id, aws_secret_access_key)
 
-    def setup_lambda(self, region, role_name, timeout_time, aws_access_key_id, aws_secret_access_key):
+    def setup_lambda(self, region, role_name, timeout_time,
+                     aws_access_key_id, aws_secret_access_key,
+                     subnet_ids=[], security_group_ids=[]):
         iam = IAM(region,
                   aws_access_key_id=aws_access_key_id,
                   aws_secret_access_key=aws_secret_access_key)
         role_arn = iam.get_or_create_role(role_name=role_name)
         awslambda = Lambda(region, role_arn,
-                      subnet_ids=[],
-                      security_group_ids=[],
+                      subnet_ids=subnet_ids,
+                      security_group_ids=security_group_ids,
                       timeout_time=timeout_time,
                       aws_access_key_id=aws_access_key_id,
                       aws_secret_access_key=aws_secret_access_key)

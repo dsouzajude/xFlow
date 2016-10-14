@@ -38,9 +38,8 @@ general:
 
 aws:
   region:
-  vpc_id:
-  aws_access_key_id:
-  aws_secret_access_key:
+  subnet_ids:
+  security_group_ids:
   lambda_execution_role_name: lambda-execute
 
 lambdas:

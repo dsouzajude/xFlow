@@ -23,6 +23,10 @@ class CloudWatchLogDoesNotExist(Exception):
     pass
 
 
+class KinesisStreamDoesNotExist(Exception):
+    pass
+
+
 class Lambda(object):
 
     def __init__(self, region, role_arn,
@@ -234,8 +238,15 @@ class Kinesis(object):
         return stream_arn
 
     def publish(self, stream_name, data):
-        self.kinesis.put_record(StreamName=stream_name, Data=data, PartitionKey=data)
-        ## TODO: capture error if stream doesn't exist
+        try:
+            self.kinesis.put_record(StreamName=stream_name, Data=data, PartitionKey=data)
+        except botocore.exceptions.ClientError as ex:
+            if ex.response['Error']['Code'] == 'ResourceNotFoundException':
+                log.error("Stream does not exist, stream_name=%s" % stream_name)
+                raise KinesisStreamDoesNotExist("stream_name=%s" % stream_name)
+            else:
+                log.error("Unexpred publishing error, stream_name=%s, error=%s" % (stream_name, str(ex)))
+                raise ex
 
 
 class CloudWatchLogs(object):
@@ -256,7 +267,6 @@ class CloudWatchLogs(object):
                 log.info('LogGroup exists, log_group=%s' % name)
 
     def get_log_events(self, log_group_name, log_stream_name):
-        # TODO: Raise error if log_group_name and log_stream_name does not exists
         all_events = []
         next_token = None
         proceed = True

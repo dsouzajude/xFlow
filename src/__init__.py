@@ -105,8 +105,11 @@ def main():
         stream = args['p'][0]
         data = args['p'][1]
         log.info('\n\n\nPublishing to stream: %s\n\nData: %s' % (stream, data))
-        engine.publish(stream, data)
-        log.info('Published')
+        try:
+            engine.publish(stream, data)
+            log.info('Published')
+        except core.KinesisStreamDoesNotExist:
+            sys.exit(1)
 
     # Track a workflow
     if args['t']:

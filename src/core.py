@@ -7,7 +7,8 @@ from pykwalify.core import Core
 import utils
 import tracker
 from aws import Lambda, Kinesis, IAM, CloudWatchLogs, \
-                CloudWatchLogDoesNotExist, CloudWatchStreamDoesNotExist
+                CloudWatchLogDoesNotExist, CloudWatchStreamDoesNotExist, \
+                KinesisStreamDoesNotExist
 
 
 log = logging.getLogger(__name__)

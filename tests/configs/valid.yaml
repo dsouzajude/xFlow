@@ -1,0 +1,41 @@
+general:
+  lambda_timeout_time: 3
+
+aws:
+  region: eu-west-1
+  subnet_ids:
+  security_group_ids:
+  lambda_execution_role_name: lambda-execute
+
+lambdas:
+  - name: lambda_file_reader
+    description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_file_reader.py
+    handler: lambda_handler
+    runtime: python2.7
+
+  - name: lambda_parser
+    description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_parser.py
+    handler: parse
+    runtime: python2.7
+
+subscriptions:
+  - event: FileUploaded
+    subscribers:
+      - lambda_file_reader
+  - event: FileDownloaded
+    subscribers:
+      - lambda_parser
+  - event: FileParsed
+    subscribers:
+  - event: FileFiltered
+    subscribers:
+
+# Optional - Can be used to track a complete workflow
+workflows:
+  - id: compute_word_count
+    flow:
+      - FileUploaded
+      - FileDownloaded
+      - FileParsed

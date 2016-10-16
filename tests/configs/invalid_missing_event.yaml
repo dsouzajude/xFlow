@@ -1,0 +1,8 @@
+lambdas:
+subscriptions:
+
+# Optional - Can be used to track a complete workflow
+workflows:
+  - id: compute_word_count
+    flow:
+      - FileUploaded

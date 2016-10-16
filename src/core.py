@@ -212,7 +212,7 @@ class Engine(object):
             raise ConfigValidationError(str(ex))
 
         subscriptions = config.get('subscriptions') or []
-        lambdas = config.get('lambdas')
+        lambdas = config.get('lambdas') or []
         lambda_names = [l['name'] for l in lambdas]
         subscription_events = []
         for ss in subscriptions:
@@ -241,20 +241,36 @@ class Engine(object):
         self.kinesis.publish(stream_name, data)
         log.debug('publishing, stream=%s, data=%s' % (stream_name, data))
 
-    def track(self, workflow_id, execution_id):
-        ''' Tracks the workflow by printing all the events that were
-        processed in the workflow.
-        '''
-        # Get defined workflow events
-        workflows = self.config.get('workflows') or []
-        workflow_to_track = [w for w in workflows if w['id'] == workflow_id]
-        if not workflow_to_track:
-            log.error("Workflow not found, workflow_id=%s" % workflow_id)
-            raise WorkflowDoesNotExist("workflow_id=%s" % workflow_id)
-        workflow_events = workflow_to_track[0].get("flow") or []
-        workflow_events = {e: STATE_UNKNOWN for e in workflow_events}
+    def _generate_execution_path(self, workflow_state):
+        ''' Generates the execution path in an instance of a workflow.
 
-        # Get events received
+        Successful Execution Path:
+            Event1 ---> Event2 ---> Event3
+
+        Failed Execution Path:
+            Event1 ---> X - - -> Event2 - - -> Event3
+        '''
+        events_received = [e for e, state in workflow_state.items() if state != STATE_UNKNOWN]
+        events_not_received = [e for e, state in workflow_state.items() if state == STATE_UNKNOWN]
+        execution_path = " ---> ".join(events_received)
+        if events_not_received:
+            execution_path += " ---> X - - -> "
+            execution_path += " - - - > ".join(events_not_received)
+        return execution_path
+
+    def _reconcile_workflow_state(self, workflow_state, logged_events):
+        for e in logged_events:
+            # The tracker adds the "event_name" when
+            # logging to the stream
+            data = e['data']
+            event_name = data['event_name']
+            if workflow_state.get(event_name):
+                workflow_state[event_name] = STATE_RECEIVED
+            else:
+                workflow_state[event_name] = STATE_RECEIVED_UNEXPECTED
+
+    def _get_log_events(self, workflow_id, execution_id):
+        ''' Gets the log events for a particular execution in a workflow '''
         log_group_name = self._generate_log_group_name(workflow_id)
         log_stream_name = tracker.generate_log_stream_name(log_group_name, execution_id)
         logged_events = []
@@ -268,42 +284,52 @@ class Engine(object):
             log.error("""Something went wrong, Log group was not created,
                       workflow_id=%s, log_group_name=%s""" % (workflow_id, log_group_name))
             raise ex
+        return logged_events
 
-        # Summarize state of events
-        # The tracker adds the "event_name" when logging to the stream
-        for e in logged_events:
-            data = e['data']
-            event_name = data['event_name']
-            if workflow_events.get(event_name):
-                workflow_events[event_name] = STATE_RECEIVED
-            else:
-                workflow_events[event_name] = STATE_RECEIVED_UNEXPECTED
-
-        # Identify the last received event in the workflow
-        # And all the lambda functions subscribed to that event
-        # These would indicate that something might have gone wrong with these
-        #   lambdas as they were not able to publish the next events in the workflow
+    def _get_last_received_event_and_subscribers(self, logged_events):
         if logged_events:
             num_logged_events = len(logged_events)
             last_received_event = logged_events[num_logged_events -1]['data']['event_name']
             lambdas_of_last_received_event = self._get_subscribers(last_received_event)
         else:
             last_received_event = None
-            lambdas_of_last_received_event = None
+            lambdas_of_last_received_event = []
+        return last_received_event, lambdas_of_last_received_event
 
-        events_received = [e for e, state in workflow_events.items() if state != STATE_UNKNOWN]
-        events_not_received = [e for e, state in workflow_events.items() if state == STATE_UNKNOWN]
-        execution_path = " ---> ".join(events_received)
-        if events_not_received:
-            execution_path += " ---> X - - -> "
-            execution_path += " - - - > ".join(events_not_received)
+    def track(self, workflow_id, execution_id):
+        ''' Tracks the workflow by printing all the events that were
+        processed in the workflow.
+        '''
+        # Get defined workflow events
+        workflows = self.config.get('workflows') or []
+        workflow_to_track = [w for w in workflows if w['id'] == workflow_id]
+        if not workflow_to_track:
+            log.error("Workflow not found, workflow_id=%s" % workflow_id)
+            raise WorkflowDoesNotExist("workflow_id=%s" % workflow_id)
+        workflow_events = workflow_to_track[0].get("flow") or []
+        workflow_state = {e: STATE_UNKNOWN for e in workflow_events}
+
+        # Get events received
+        logged_events = self._get_log_events(workflow_id, execution_id)
+
+        # Reconcile state of events
+        self._reconcile_workflow_state(workflow_state, logged_events)
+
+        # Identify the last received event in the workflow
+        # And all the lambda functions subscribed to that event
+        # These would indicate that something might have gone wrong with these
+        #   lambdas as they were not able to publish the next events in the workflow
+        event, subscribers = self._get_last_received_event_and_subscribers(logged_events)
+
+        # Generate execution path
+        execution_path = self._generate_execution_path(workflow_state)
 
         return {
-            "events_defined": workflow_events,
+            "events_defined": workflow_state,
             "events_received": logged_events,
             "tracking_summary": {
-                "last_received_event": last_received_event,
-                "subscribers": lambdas_of_last_received_event,
+                "last_received_event": event,
+                "subscribers": subscribers,
                 "execution_path": execution_path
             }
         }

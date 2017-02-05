@@ -22,7 +22,7 @@ setup(
     install_requires=[
         'boto',
         'boto3',
-        'pykwalify',
+        'pykwalify==1.5.1',
         'nose',
         'mock',
         'argparse'

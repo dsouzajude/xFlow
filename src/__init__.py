@@ -33,6 +33,7 @@ def _get_args():
     xflow <CONFIG> [-p | --publish <STREAM> <DATA>]
     xflow <CONFIG> [-t | --track <WORKFLOW_ID> <EXECUTION_ID>]
     xflow <CONFIG> [--log-level <LEVEL>]
+    xflow <CONFIG> [-s | --server]
 
     '''
     parser = argparse.ArgumentParser(prog='xflow', usage='%(prog)s CONFIG [options]', description='xFlow | A serverless workflow architecture.')
@@ -41,6 +42,7 @@ def _get_args():
     parser.add_argument('-c', action='store_true', help='Configures lambdas, streams and the subscriptions')
     parser.add_argument('-p', type=str, nargs=2, metavar=("<STREAM>","<DATA>"), required=False, help='Publishes data to a stream')
     parser.add_argument('-t', type=str, nargs=2, metavar=("<WORKFLOW_ID>","<EXECUTION_ID>"), required=False, help='Tracks a workflow')
+    parser.add_argument('-s', action='store_true', help='Run as server')
     parser.add_argument('--log-level', type=str, default='INFO', help='Setting log level [DEBUG|INFO|WARNING|ERROR|CRITICAL]')
     return vars(parser.parse_args())
 
@@ -76,7 +78,7 @@ def main():
     level = log_levels.get(level, logging.INFO)
     log = setup_logging(log_level=level)
 
-    import core, utils
+    import core, utils, server
 
     config_file = args['CONFIG']
     if not utils.file_exists(config_file):
@@ -93,6 +95,14 @@ def main():
     log.info('Initializing xFlow engine')
     engine = core.Engine(config_file)
     log.info('Config is valid')
+
+    # Run as server
+    if args['s']:
+        logging.info('Configuring xFlow Engine')
+        engine.configure()
+        app = server.create_app(engine)
+        logging.info('Running as server')
+        app.run(host='0.0.0.0', port=80, server='waitress', loglevel='warning')
 
     # Configure the lambdas, streams and subscriptions
     if args['c']:

@@ -18,9 +18,8 @@ Next step:
 - [DONE] Track workflow
 
 - REST API
-  - POST /publish
-  - POST /workflows
-  - GET /workflows/<workflow_id>/track
+  - [DONE] POST /publish
+  - GET /track/workflows/<workflow_id>/executions/<execution_id>
 
 - [DONE] Fix all TODOs
 - Test pub/sub

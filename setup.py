@@ -25,7 +25,8 @@ setup(
         'pykwalify==1.5.1',
         'nose',
         'mock',
-        'argparse'
+        'argparse',
+        'waitress'
     ],
     author="Jude D'Souza",
     author_email='dsouza_jude@hotmail.com',

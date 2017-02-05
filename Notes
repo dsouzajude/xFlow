@@ -25,3 +25,22 @@ Next step:
 - [DONE] Fix all TODOs
 - Test pub/sub
 - Monitor Lambda functions
+
+
+Using xFlow
+===========
+Set the aws credentials in ~/.aws/config and ~/.aws/credentials
+
+Testing:
+  nosetests -svx tests
+
+Validating config:
+  python src/__init__.py examples/wordcount/wordcount.yaml -v
+
+Configuring:
+  python src/__init__.py examples/wordcount/wordcount.yaml -c
+
+Publishing:
+  python src/__init__.py examples/wordcount/wordcount.yaml \
+                    --log-level INFO \
+                    -p FileUploaded '{"execution_id":"aaa", "message":"Testing"}'

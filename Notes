@@ -34,19 +34,19 @@ Testing:
   nosetests -svx tests
 
 Validating config:
-  python src/__init__.py examples/wordcount/wordcount.yaml -v
+  python xflow/__init__.py examples/wordcount/wordcount.yaml -v
 
 Configuring:
-  python src/__init__.py examples/wordcount/wordcount.yaml -c
+  python xflow/__init__.py examples/wordcount/wordcount.yaml -c
 
 Publishing:
-  python src/__init__.py examples/wordcount/wordcount.yaml \
+  python xflow/__init__.py examples/wordcount/wordcount.yaml \
                     --log-level INFO \
                     -p FileUploaded '{"execution_id":"aaa", "message":"Testing"}'
 
 Server Mode:
   Start server:
-    python src/__init__.py examples/wordcount/wordcount.yaml --log-level INFO -s
+    python xflow/__init__.py examples/wordcount/wordcount.yaml --log-level INFO -s
 
   Publish:
     curl -XPOST localhost/publish -d '{"stream":"FileUploaded", "event":{"execution_id":"ccc", "message":"Test with ccc"}}'

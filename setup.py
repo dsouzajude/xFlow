@@ -13,7 +13,7 @@ setup(
     description='A serverless workflow architecture using AWS Lambda functions and Kinesis',
     long_description=readme + '\n\n',
     version='0.1',
-    packages=['src'],
+    packages=['xflow'],
     data_files = [('.', ['./schema.yaml'])],
     include_package_data=True,
     extras_require={

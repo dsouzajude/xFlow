@@ -19,10 +19,10 @@ Next step:
 
 - REST API
   - [DONE] POST /publish
-  - GET /track/workflows/<workflow_id>/executions/<execution_id>
+  - [DONE] GET /track/workflows/<workflow_id>/executions/<execution_id>
 
 - [DONE] Fix all TODOs
-- Test pub/sub
+- [DONE] Test pub/sub
 - Monitor Lambda functions
 
 
@@ -43,3 +43,13 @@ Publishing:
   python src/__init__.py examples/wordcount/wordcount.yaml \
                     --log-level INFO \
                     -p FileUploaded '{"execution_id":"aaa", "message":"Testing"}'
+
+Server Mode:
+  Start server:
+    python src/__init__.py examples/wordcount/wordcount.yaml --log-level INFO -s
+
+  Publish:
+    curl -XPOST localhost/publish -d '{"stream":"FileUploaded", "event":{"execution_id":"ccc", "message":"Test with ccc"}}'
+
+  Track:
+    curl -v localhost/track/workflows/compute_word_count/executions/ccc

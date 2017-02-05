@@ -46,23 +46,27 @@ lambdas:
   - name: lambda_file_reader
     description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
     source: s3://flows/word_count/reader.py.zip
-    handler: read_file
+    handler: lambda_handler
     runtime: python2.7
+
   - name: lambda_parser
     description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
     source: s3://flows/word_count/parser.py.zip
     handler: parse
     runtime: python2.7
+
   - name: lambda_combiner
     description: Groups similar words and aggregates the count and publishes a `FileAggregated` with the grouping in it.
     source: s3://flows/word_count/combiner.py.zip
     handler: parse
     runtime: python2.7
+
   - name: lambda_filter
     description: Filters out non-words and publishes a 'FileFiltered' with the remainder words in it.
     source: s3://flows/word_count/filter.py.zip
     handler: filter
     runtime: python2.7
+
   - name: lambda_summarize
     description: Outputs the word count for every unique word and total words in the file.
     source: git://project/blob/master/flows/word_count/summary.py
@@ -70,27 +74,29 @@ lambdas:
     runtime: python2.7
 
 subscriptions:
-  - name: FileUploaded
+  - event: FileUploaded
     subscribers:
       - lambda_file_reader
-  - name: FileDownloaded
+  - event: FileDownloaded
     subscribers:
       - lambda_parser
-  - name: FileParsed
+  - event: FileParsed
     subscribers:
-      - lambda_combiner
-  - name: FileAggregated
+  - event: FileFiltered
     subscribers:
-      - lambda_filter
-  - name: FileFiltered
-    subscribers:
-      - lambda_summarize
 
+# Optional - Can be used to track a complete workflow
+workflows:
+  - id: compute_word_count
+    flow:
+      - FileUploaded
+      - FileDownloaded
+      - FileParsed
 ```
 
 - Setup the workflow via the following command:
 
-  `xflow setup -file word_count.cfg`
+  `xflow word_count.cfg --configure`
 
   Behind the scenes, this will do the following:
   - Create (or update) AWS Lambda functions.
@@ -99,7 +105,7 @@ subscriptions:
 
 - Tracking the workflow is done via the following command:
 
-  `xflow track -flow word_count -execution_id 112233`
+  `xflow word_count.cfg --track <WORKFLOW_ID> <EXECUTION_ID>`
 
   An instance of a particular workflow is tracked via its `execution_id`. Therefore all events defined
   in a workflow must contain this field. Since it is required to have the events defined in order it
@@ -124,6 +130,19 @@ subscriptions:
 
   For every subsequent event published to the kinesis stream, the corresponding lambda for the workflow will be invoked and it will save the event to the log stream.
 
+- Running in server mode:
+
+  `xflow word_count.cfg --server`
+
+  This will run xflow via server mode. On startup, the server will setup the necessary streams, lambda functions and workflows. You can then publish events to a stream or track workflow executions in a RESTful way. Following are examples how you would do this.
+
+  Publishing:
+
+  `curl -XPOST localhost/publish -d '{"stream":"FileUploaded", "event":{"execution_id":"ex1", "message":"Test with ccc"}}'`
+
+  Tracking:
+
+  `curl -v localhost/track/workflows/compute_word_count/executions/ex1`
 
 
 xFlow Requirements (and roadmap):

@@ -96,11 +96,18 @@ def create_app(engine):
         try:
             engine.publish(stream, event)
         except core.KinesisStreamDoesNotExist as ex:
-            raise NotFoundException(ex)
+            raise NotFoundException(str(ex))
         return {}
 
-    @app.route('/track', method=['GET'])
-    def ping():
-        return {}
+    @app.route('/track/workflows/<workflow_id>/executions/<execution_id>', method=['GET'])
+    def track(workflow_id, execution_id):
+        try:
+            tracking_info = engine.track(workflow_id, execution_id)
+            return tracking_info
+        except (core.CloudWatchStreamDoesNotExist,
+                core.WorkflowDoesNotExist,
+                core.CloudWatchLogDoesNotExist) as ex:
+            raise NotFoundException(str(ex))
+        raise Exception("Something went wrong!")
 
     return app

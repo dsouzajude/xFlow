@@ -4,9 +4,9 @@ import nose.tools as nt
 from mock import patch, ANY, Mock
 import logging
 
-import src
-from src import core, utils, aws, tracker
-from core import IAM, Engine, ConfigValidationError, WorkflowDoesNotExist, \
+import xflow
+from xflow import core, utils, aws, tracker
+from xflow.core import IAM, Engine, ConfigValidationError, WorkflowDoesNotExist, \
                 CloudWatchLogDoesNotExist, CloudWatchStreamDoesNotExist
 
 

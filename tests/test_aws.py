@@ -6,8 +6,8 @@ import logging
 
 import botocore
 
-from src import aws, utils
-from aws import CloudWatchLogs, CloudWatchLogDoesNotExist, \
+from xflow import utils
+from xflow.aws import CloudWatchLogs, CloudWatchLogDoesNotExist, \
                 CloudWatchStreamDoesNotExist, \
                 Kinesis, KinesisStreamDoesNotExist, \
                 IAM, Lambda, MissingSourceCodeFileError
@@ -15,12 +15,12 @@ from aws import CloudWatchLogs, CloudWatchLogDoesNotExist, \
 
 class TestLambda(object):
 
-    @patch('aws.boto3.client')
+    @patch('xflow.aws.boto3.client')
     def setup(self, client_mock):
         self.llambda = Lambda("eu-west-1", "my-role-arn")
 
-    @patch('utils.zip_file')
-    @patch('utils.get_zip_contents')
+    @patch('xflow.utils.zip_file')
+    @patch('xflow.utils.get_zip_contents')
     def test_successfully_creates_function(self, zip_contents_mock, zip_file_mock):
         resonse = {"Error": {"Code": "ResourceNotFoundException", "Message": ""}}
         err = botocore.exceptions.ClientError(resonse, "update_function_code")
@@ -31,8 +31,8 @@ class TestLambda(object):
                                                local_filename="/mycode.py")
         nt.assert_equals(1, self.llambda.awslambda.create_function.call_count)
 
-    @patch('utils.zip_file')
-    @patch('utils.get_zip_contents')
+    @patch('xflow.utils.zip_file')
+    @patch('xflow.utils.get_zip_contents')
     def test_successfully_updates_function(self, zip_contents_mock, zip_file_mock):
         self.llambda.create_or_update_function("myfunc",
                                                "python2.7",
@@ -53,7 +53,7 @@ class TestLambda(object):
 
 class TestIAM(object):
 
-    @patch('aws.boto3.client')
+    @patch('xflow.aws.boto3.client')
     def setup(self, client_mock):
         self.role = "test-role"
         self.iam = IAM("eu-west-1")
@@ -76,7 +76,7 @@ class TestIAM(object):
 
 class TestKinesis(object):
 
-    @patch('aws.boto3.client')
+    @patch('xflow.aws.boto3.client')
     def setup(self, client_mock):
         self.stream = "test-stream"
         self.kinesis = Kinesis("eu-west-1")
@@ -109,7 +109,7 @@ class TestKinesis(object):
 
 class TestCloudWatchLogs(object):
 
-    @patch('aws.boto3.client')
+    @patch('xflow.aws.boto3.client')
     def setup(self, client_mock):
         self.log_group = "test_group"
         self.log_stream = "test_stream"

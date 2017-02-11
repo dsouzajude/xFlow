@@ -1,0 +1,69 @@
+general:
+  lambda_timeout_time: 3
+
+aws:
+  region:
+  subnet_ids:
+  security_group_ids:
+  lambda_execution_role_name: lambda-execute
+
+lambdas:
+  - name: lambda_reader
+    description: Reads contents of a file that was uploaded and publishes those contents.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_reader.py
+    handler: lambda_handler
+    runtime: python2.7
+
+  - name: lambda_parser
+    description: Reads contents, parses it into an array of words.
+    source: s3://wrapp-xflow/wordcount/lambda_parser.py
+    handler: parse
+    runtime: python2.7
+
+  - name: lambda_filter
+    description: Filters non-letters from words and non-words.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_filter.py
+    handler: filter_out_non_words
+    runtime: python2.7
+
+  - name: lambda_aggregator
+    description: Groups similar words and counts them.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_aggregator.py
+    handler: aggregate
+    runtime: python2.7
+
+  - name: lambda_summarizer
+    description: Prints unique word counts.
+    source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_summarizer.py
+    handler: summarize
+    runtime: python2.7
+
+subscriptions:
+  - event: FileUploaded
+    subscribers:
+      - lambda_reader
+  - event: FileDownloaded
+    subscribers:
+      - lambda_parser
+  - event: FileParsed
+    subscribers:
+      - lambda_filter
+  - event: FileFiltered
+    subscribers:
+      - lambda_aggregator
+  - event: FileAggregated
+    subscribers:
+      - lambda_summarizer
+  - event: FileSummarized
+    subscribers:
+
+# Optional - Can be used to track a complete workflow
+workflows:
+  - id: compute_word_count
+    flow:
+      - FileUploaded
+      - FileDownloaded
+      - FileParsed
+      - FileFiltered
+      - FileAggregated
+      - FileSummarized

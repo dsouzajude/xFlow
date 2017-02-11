@@ -43,9 +43,9 @@ class TestEngineConfiguration(object):
     ''' Tests that lambdas, streams, subscriptions, tracker
     and workflows are correctly setup '''
 
-    @patch('core.Engine.setup_lambda')
-    @patch('core.Engine.setup_kinesis')
-    @patch('core.Engine.setup_cloud_watch_logs')
+    @patch('xflow.core.Engine.setup_lambda')
+    @patch('xflow.core.Engine.setup_kinesis')
+    @patch('xflow.core.Engine.setup_cloud_watch_logs')
     def setup(self, cwlogs_mock, kinesis_mock, lambda_mock):
         config_path = config_dir + "/valid.yaml"
         self.test_config = utils.parse_yaml(utils.read_file(config_path))
@@ -78,8 +78,8 @@ class TestEngineConfiguration(object):
         nt.assert_equals(len(stream_names), self.engine.kinesis.get_or_create_stream.call_count)
         nt.assert_equals(len(subscribers), self.engine.awslambda.subscribe_to_stream.call_count)
 
-    @patch('utils.write_file')
-    @patch('tracker.generate_code')
+    @patch('xflow.utils.write_file')
+    @patch('xflow.tracker.generate_code')
     def test_tracker_is_setup(self, generate_code_mock, write_mock):
         ''' Tests that the tracker lambda is created along with its
         log group and that it is subscribed to all streams in the workflow '''
@@ -94,8 +94,8 @@ class TestEngineConfiguration(object):
         nt.assert_equals(len(stream_arns), self.engine.awslambda.subscribe_to_stream.call_count)
         nt.assert_equals(1, self.engine.cwlogs.create_log_group.call_count)
 
-    @patch('utils.write_file')
-    @patch('tracker.generate_code')
+    @patch('xflow.utils.write_file')
+    @patch('xflow.tracker.generate_code')
     def test_workflows_are_setup(self, generate_code_mock, write_mock):
         ''' Tests that all workflows as defined in the config are created along
         with their trackers '''
@@ -107,8 +107,8 @@ class TestEngineConfiguration(object):
         num_log_groups_created = self.engine.cwlogs.create_log_group.call_count
         nt.assert_equals(num_workflows, num_log_groups_created)
 
-    @patch('utils.write_file')
-    @patch('tracker.generate_code')
+    @patch('xflow.utils.write_file')
+    @patch('xflow.tracker.generate_code')
     def test_engine_is_successfully_configured(self, generate_code_mock, write_mock):
         ''' Tests that the engine is configurated successfully, i.e. the lambda,
         streams, subscriptions, workflows and their trackers are setup. '''
@@ -144,9 +144,9 @@ class TestEngineInitialization(object):
 class TestEnginePublishing(object):
     ''' Tests publishing to a stream '''
 
-    @patch('core.Engine.setup_lambda')
-    @patch('core.Engine.setup_kinesis')
-    @patch('core.Engine.setup_cloud_watch_logs')
+    @patch('xflow.core.Engine.setup_lambda')
+    @patch('xflow.core.Engine.setup_kinesis')
+    @patch('xflow.core.Engine.setup_cloud_watch_logs')
     def test_publish_is_successful(self, cwlogs_mock, kinesis_mock, lambda_mock):
         ''' Test data is successfully published to a stream '''
         config_path = config_dir + "/valid.yaml"
@@ -159,9 +159,9 @@ class TestEnginePublishing(object):
 class TestEngineWorkflowTracking(object):
     ''' Tests workflow tracking '''
 
-    @patch('core.Engine.setup_lambda')
-    @patch('core.Engine.setup_kinesis')
-    @patch('core.Engine.setup_cloud_watch_logs')
+    @patch('xflow.core.Engine.setup_lambda')
+    @patch('xflow.core.Engine.setup_kinesis')
+    @patch('xflow.core.Engine.setup_cloud_watch_logs')
     def setup(self, cwlogs_mock, kinesis_mock, lambda_mock):
         config_path = config_dir + "/valid.yaml"
         self.test_config = utils.parse_yaml(utils.read_file(config_path))

@@ -1,3 +1,4 @@
+import os
 import time
 import json
 import logging
@@ -37,9 +38,17 @@ class Lambda(object):
         self.timeout_time = timeout_time
         self.subnet_ids = subnet_ids
         self.security_group_ids = security_group_ids
+        self.s3 = boto3.client('s3', region,
+                               aws_access_key_id=aws_access_key_id,
+                               aws_secret_access_key=aws_secret_access_key)
         self.awslambda = boto3.client('lambda', region,
                                       aws_access_key_id=aws_access_key_id,
                                       aws_secret_access_key=aws_secret_access_key)
+
+    def download_from_s3(self, bucket, key, destination):
+        with open(destination, 'wb') as f:
+            self.s3.download_fileobj(bucket, key, f)
+        return os.path.realpath(f.name)
 
     def create_or_update_function(self, name, runtime, handler,
                                   description=None, zip_filename=None,
@@ -55,7 +64,14 @@ class Lambda(object):
             log.debug('source=local, file=%s' % local_filename)
         elif s3_filename:
             bucket, key = utils.get_host(s3_filename), utils.get_path(s3_filename)
-            code = {'S3Bucket': bucket, 'S3Key': key}
+            if key.endswith('.zip'):
+                code = {'S3Bucket': bucket, 'S3Key': key}
+            else:
+                filename = utils.get_resource(s3_filename)
+                local_filename = self.download_from_s3(bucket, key, filename)
+                zip_filename = utils.zip_file(local_filename, otherfiles=otherfiles)
+                zip_blob = utils.get_zip_contents(zip_filename)
+                code = {'ZipFile': zip_blob}
             log.debug('source=s3, file=%s' % s3_filename)
         else:
             log.error('Missing source')

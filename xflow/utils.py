@@ -77,6 +77,11 @@ def get_path(url):
     return url_obj.path[1:]
 
 
+def get_resource(url):
+    url_obj = urlparse(url)
+    return url_obj.path.rsplit('/', 1)[-1]
+
+
 def get_scheme(url):
     url_obj = urlparse(url)
     return url_obj.scheme

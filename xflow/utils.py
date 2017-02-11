@@ -2,6 +2,7 @@ import os
 import os.path
 import json
 import yaml
+import inspect
 from urlparse import urlparse
 import zipfile
 from zipfile import ZipFile
@@ -66,6 +67,10 @@ def get_zip_contents(zip_filename):
 def file_exists(config_path):
     return True if os.path.isfile(config_path) else False
 
+
+def get_project_directory():
+    filepath = os.path.abspath(inspect.stack()[0][1])
+    return filepath.rsplit('/', 2)[0]
 
 def get_host(url):
     url_obj = urlparse(url)

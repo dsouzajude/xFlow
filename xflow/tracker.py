@@ -137,7 +137,7 @@ def log(event, context):
             execution_id = payload.get('execution_id')
             if not execution_id:
                 logkv("No execution_id found", workflow_id=workflow_id)
-                return
+                continue
 
             # Add event name so it can be logged for tracking
             payload["event_name"] = event_name
@@ -146,7 +146,7 @@ def log(event, context):
             log_stream = generate_log_stream_name(log_group, execution_id)
             ok = create_log_stream(logs, log_group, log_stream)
             if not ok:
-                return
+                continue
 
             # Try logging to the stream
             try_log_to_stream(logs, log_group, log_stream, json.dumps(payload))

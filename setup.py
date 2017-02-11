@@ -35,7 +35,7 @@ setup(
     url='http://github.com/dsouzajude/xFlow',
     entry_points={
         'console_scripts': [
-            'xflow = src:main',
+            'xflow = xflow:main',
         ],
     },
     zip_safe=False,

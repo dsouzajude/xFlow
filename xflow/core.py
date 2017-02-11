@@ -205,7 +205,7 @@ class Engine(object):
         And also validates the lambdas in the subscriptions that they are defined
         Raises ConfigValidationError if not valid.
         '''
-        c = Core(source_file=config_file, schema_files=["schema.yaml"])
+        c = Core(source_file=config_file, schema_files=["../../schema.yaml"])
         try:
             config = c.validate(raise_exception=True)
         except pykwalify.errors.SchemaError as ex:

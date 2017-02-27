@@ -8,7 +8,7 @@ except ImportError:
 setup(
     name='xFlow',
     description='A serverless workflow architecture using AWS Lambda functions and Kinesis',
-    version='0.1.1',
+    version='0.1.2',
     packages=['xflow'],
     data_files = [('.', ['./schema.yaml'])],
     include_package_data=True,

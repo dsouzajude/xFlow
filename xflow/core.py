@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import pykwalify
+import collections
 from pykwalify.core import Core
 
 import utils
@@ -309,7 +310,12 @@ class Engine(object):
             log.error("Workflow not found, workflow_id=%s" % workflow_id)
             raise WorkflowDoesNotExist("workflow_id=%s" % workflow_id)
         workflow_events = workflow_to_track[0].get("flow") or []
-        workflow_state = {e: STATE_UNKNOWN for e in workflow_events}
+
+        # Save state of workflow events (i.e. 'received' or 'unknown' state)
+        # Use OrderedDict to maintain order of workflow events
+        workflow_state = collections.OrderedDict()
+        for e in workflow_events:
+            workflow_state[e] = STATE_UNKNOWN
 
         # Get events received
         logged_events = self._get_log_events(workflow_id, execution_id)

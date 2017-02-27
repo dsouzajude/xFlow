@@ -281,7 +281,9 @@ class CloudWatchLogs(object):
 
     def __init__(self, region,
                  aws_access_key_id=None, aws_secret_access_key=None):
-        self.cwlogs = boto3.client('logs')
+        self.cwlogs = boto3.client('logs', region,
+                                aws_access_key_id=aws_access_key_id,
+                                aws_secret_access_key=aws_secret_access_key)
 
     def create_log_group(self, name):
         try:

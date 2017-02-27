@@ -11,7 +11,7 @@ lambdas:
   - name: lambda_reader
     description: Reads contents of a file that was uploaded and publishes those contents.
     source: /Users/jude/Documents/Wrapp/development/xFlow/examples/wordcount/lambda_reader.py
-    handler: lambda_handler
+    handler: read
     runtime: python2.7
 
   - name: lambda_parser

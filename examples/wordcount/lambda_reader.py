@@ -5,7 +5,7 @@ import base64
 OUTBOUND_EVENT = 'FileDownloaded'
 
 
-def lambda_handler(event, context):
+def read(event, context):
     kinesis = boto3.client('kinesis')
     print("Received event: " + json.dumps(event, indent=4))
     for record in event['Records']:

@@ -78,6 +78,18 @@ class Lambda(object):
             raise MissingSourceCodeFileError("Must provide either zip_filename, s3_filename or local_filename")
 
         try:
+            _handler = '%s.%s' % (name, handler)
+            self.awslambda\
+                .update_function_configuration(FunctionName=name,
+                                               Role=self.role_arn,
+                                               Handler=_handler,
+                                               Description=description or name,
+                                               Timeout=self.timeout_time,
+                                               Runtime=runtime,
+                                               VpcConfig={
+                                                'SubnetIds': self.subnet_ids,
+                                                'SecurityGroupIds': self.security_group_ids
+                                               })
             if zip_filename or local_filename:
                 function = self.awslambda \
                                .update_function_code(FunctionName=name,
@@ -92,7 +104,7 @@ class Lambda(object):
             log.info("Lambda updated, lambda=%s" % name)
         except botocore.exceptions.ClientError as ex:
             if ex.response['Error']['Code'] == 'ResourceNotFoundException':
-                handler = '%s.%s' % (name, handler)
+                _handler = '%s.%s' % (name, handler)
                 # Amazon needs a few seconds to replicate the new role through
                 # all regions. So creating a Lambda function just after the role
                 # creation would sometimes result in botocore.exceptions.ClientError:
@@ -107,7 +119,7 @@ class Lambda(object):
                                        .create_function(FunctionName=name,
                                                         Runtime=runtime,
                                                         Role=self.role_arn,
-                                                        Handler=handler,
+                                                        Handler=_handler,
                                                         Description=description or name,
                                                         Timeout=self.timeout_time,
                                                         Publish=True,

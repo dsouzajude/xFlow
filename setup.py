@@ -18,6 +18,7 @@ setup(
     install_requires=[
         'boto',
         'boto3',
+        'bottle',
         'pykwalify==1.5.1',
         'nose',
         'mock',

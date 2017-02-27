@@ -54,3 +54,15 @@ Server Mode:
 
   Track:
     curl -v localhost/track/workflows/compute_word_count/executions/ccc
+
+
+Releasing to pypi
+http://sherifsoliman.com/2016/09/30/Python-package-with-GitHub-PyPI/
+====================================================================
+- Do all your commits
+- git tag <VERSION> -m "Adds <VERSION> tag for PyPI"
+- git push --tags origin master
+- python setup.py register -r pypitest
+- python setup.py sdist upload -r pypitest
+- python setup.py register -r pypi
+- python setup.py sdist upload -r pypi

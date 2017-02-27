@@ -3,6 +3,8 @@ import json
 import logging
 import pykwalify
 import collections
+from pkg_resources import Requirement, resource_filename
+
 from pykwalify.core import Core
 
 import utils
@@ -206,8 +208,7 @@ class Engine(object):
         And also validates the lambdas in the subscriptions that they are defined
         Raises ConfigValidationError if not valid.
         '''
-        project_dir = utils.get_project_directory()
-        schema_path = project_dir + '/schema.yaml'
+        schema_path = resource_filename("xflow", "schema.yaml")
         c = Core(source_file=config_file, schema_files=[schema_path])
         try:
             config = c.validate(raise_exception=True)

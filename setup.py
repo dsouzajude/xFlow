@@ -8,9 +8,9 @@ except ImportError:
 setup(
     name='xFlow',
     description='A serverless workflow architecture using AWS Lambda functions and Kinesis',
-    version='0.1.4',
+    version='0.1.12',
     packages=['xflow'],
-    data_files = [('.', ['./schema.yaml'])],
+    data_files=[('xflow', ['xflow/schema.yaml'])],
     include_package_data=True,
     extras_require={
         'ruamel': ["ruamel.yaml>=0.11.0,<0.12.0"],

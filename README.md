@@ -160,6 +160,24 @@ workflows:
   `curl -v localhost/track/workflows/compute_word_count/executions/ex1`
 
 
+Installation:
+=============
+
+- Via pip
+
+```bash
+>> pip install xflow
+```
+
+- Via github
+
+```bash
+>> git clone git@github.com:dsouzajude/xFlow.git
+>> cd xFlow
+>> python setup.py install
+```
+
+
 xFlow Requirements (and roadmap):
 =================================
 - Integration with github (so we can download the lambda function from there given the link)

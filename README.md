@@ -3,8 +3,6 @@ xFlow
 =====
 A serverless workflow architecture using AWS Lambda functions and Kinesis.
 
-**THIS PROJECT IS CURRENTLY A WORK IN PROGRESS AND IS NOT INTENDED TO BE USED FOR NOW UNTIL RELEASED**
-
 
 How it works
 ============
@@ -20,10 +18,17 @@ These steps are AWS Lambda functions and primarily, they should do the following
 - Do work based on these events
 - Optionally emit an output event for other lambda functions to work on
 
-For now, the transport for pub/sub we use is AWS Kinesis, but later we intend
-to make this as a plugin that can be used for any pub/sub protocol.
+xFlow uses AWS Kinesis as the streaming engine to publish and subscribe events in a workflow.
+As described above, these events would then be processed via AWS Lambda functions after they
+have been subscribed to it. The configuration file that you provide to xFlow would be the glue
+that combines events to the processors in a workflow.
 
-This tool internally creates the AWS Lambda functions and subscribes them to AWS Kinesis.
+xFlow will internally create the AWS Lambda functions and subscribe them to AWS Kinesis.
+All you need to do is write the body of the lambda functions.
+
+xFlow supports all languages AWS Lambda supports. At this moment, lambdas can only be
+uploaded from the local filesystem or s3. In the future we will support integration with
+github.
 
 
 Creating a sample workflow:
@@ -43,46 +48,53 @@ aws:
   lambda_execution_role_name: lambda-execute
 
 lambdas:
-  - name: lambda_file_reader
-    description: Downloads the file and publishes `FileDownloaded` event with the contents in it.
-    source: s3://flows/word_count/reader.py.zip
-    handler: lambda_handler
+  - name: lambda_reader
+    description: Reads contents of a file that was uploaded and publishes those contents.
+    source: /xFlow/examples/wordcount/lambda_reader.py
+    handler: read
     runtime: python2.7
 
   - name: lambda_parser
-    description: Reads contents, parses it into an array of words and publishes a `FileParsed` event with the data in it.
-    source: s3://flows/word_count/parser.py.zip
-    handler: parse
-    runtime: python2.7
-
-  - name: lambda_combiner
-    description: Groups similar words and aggregates the count and publishes a `FileAggregated` with the grouping in it.
-    source: s3://flows/word_count/combiner.py.zip
+    description: Reads contents, parses it into an array of words.
+    source: s3://xFlow/flows/wordcount/lambda_parser.py
     handler: parse
     runtime: python2.7
 
   - name: lambda_filter
-    description: Filters out non-words and publishes a 'FileFiltered' with the remainder words in it.
-    source: s3://flows/word_count/filter.py.zip
-    handler: filter
+    description: Filters non-letters from words and non-words.
+    source: /xFlow/examples/wordcount/lambda_filter.py
+    handler: filter_out_non_words
     runtime: python2.7
 
-  - name: lambda_summarize
-    description: Outputs the word count for every unique word and total words in the file.
-    source: git://project/blob/master/flows/word_count/summary.py
+  - name: lambda_aggregator
+    description: Groups similar words and counts them.
+    source: /xFlow/examples/wordcount/lambda_aggregator.py
+    handler: aggregate
+    runtime: python2.7
+
+  - name: lambda_summarizer
+    description: Prints unique word counts.
+    source: /xFlow/examples/wordcount/lambda_summarizer.py
     handler: summarize
     runtime: python2.7
 
 subscriptions:
   - event: FileUploaded
     subscribers:
-      - lambda_file_reader
+      - lambda_reader
   - event: FileDownloaded
     subscribers:
       - lambda_parser
   - event: FileParsed
     subscribers:
+      - lambda_filter
   - event: FileFiltered
+    subscribers:
+      - lambda_aggregator
+  - event: FileAggregated
+    subscribers:
+      - lambda_summarizer
+  - event: FileSummarized
     subscribers:
 
 # Optional - Can be used to track a complete workflow
@@ -92,6 +104,9 @@ workflows:
       - FileUploaded
       - FileDownloaded
       - FileParsed
+      - FileFiltered
+      - FileAggregated
+      - FileSummarized
 ```
 
 - Setup the workflow via the following command:
@@ -148,9 +163,6 @@ workflows:
 xFlow Requirements (and roadmap):
 =================================
 - Integration with github (so we can download the lambda function from there given the link)
-- Lambda functions can subscribe to events
-- Lambda functions can publish events
 - Monitoring around lambda functions
 - Centralized Logging (or ability to route logs) to log server
-- Tracking execution in a workflow (via unique `execution_id` which is common to all steps in the workflow)
 - CI/ CD for lambda functions

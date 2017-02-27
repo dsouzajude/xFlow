@@ -49,9 +49,6 @@ setup(
         'eventbus'
     ],
     classifiers=(
-        # 'Development Status :: 5 - Production/Stable',
-        # 'Development Status :: 6 - Mature',
-        'Development Status :: Inactive',
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',
         'Environment :: Console',

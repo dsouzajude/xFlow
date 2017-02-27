@@ -22,6 +22,7 @@ setup(
         'nose',
         'mock',
         'argparse',
+        'jsonschema',
         'waitress'
     ],
     author="Jude D'Souza",

@@ -33,6 +33,7 @@ setup(
     maintainer="Jude D'Souza",
     maintainer_email='dsouza_jude@hotmail.com',
     url='http://github.com/dsouzajude/xFlow',
+    download_url='https://github.com/dsouzajude/xflow/archive/0.1.tar.gz',
     entry_points={
         'console_scripts': [
             'xflow = xflow:main',

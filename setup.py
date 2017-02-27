@@ -40,6 +40,14 @@ setup(
         ],
     },
     zip_safe=False,
+    keywords=[
+        'serverless',
+        'lambda',
+        'kinesis',
+        'workflow',
+        'streams',
+        'eventbus'
+    ],
     classifiers=(
         # 'Development Status :: 5 - Production/Stable',
         # 'Development Status :: 6 - Mature',

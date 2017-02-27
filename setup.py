@@ -5,13 +5,9 @@ try:
 except ImportError:
     from distutils.core import setup
 
-with open('README.md') as f:
-    readme = f.read()
-
 setup(
     name='xFlow',
     description='A serverless workflow architecture using AWS Lambda functions and Kinesis',
-    long_description=readme + '\n\n',
     version='0.1',
     packages=['xflow'],
     data_files = [('.', ['./schema.yaml'])],
